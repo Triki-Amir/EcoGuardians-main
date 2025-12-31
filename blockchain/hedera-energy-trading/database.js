@@ -10,6 +10,7 @@ const DB_PATH = path.join(__dirname, 'energy-trading.db');
 
 /**
  * Initialize database with required tables
+ * @returns {Promise<void>} Resolves when database is initialized
  */
 function initDatabase() {
   return new Promise((resolve, reject) => {
@@ -35,6 +36,7 @@ function initDatabase() {
         )
       `, (err) => {
         if (err) {
+          db.close();
           reject(err);
           return;
         }
@@ -56,6 +58,7 @@ function initDatabase() {
           )
         `, (err) => {
           if (err) {
+            db.close();
             reject(err);
             return;
           }
@@ -73,12 +76,17 @@ function initDatabase() {
               FOREIGN KEY (factoryId) REFERENCES factories(factoryId)
             )
           `, (err) => {
-            if (err) {
-              reject(err);
-            } else {
-              console.log('✓ Database initialized');
-              resolve(db);
-            }
+            // Always close the initialization connection
+            db.close((closeErr) => {
+              if (err) {
+                reject(err);
+              } else if (closeErr) {
+                reject(closeErr);
+              } else {
+                console.log('✓ Database initialized');
+                resolve();
+              }
+            });
           });
         });
       });

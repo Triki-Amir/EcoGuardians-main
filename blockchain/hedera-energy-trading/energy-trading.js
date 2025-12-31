@@ -312,17 +312,46 @@ async function executeTrade(tradeId) {
 
 /**
  * Transfer TEC tokens on Hedera network
- * Note: This requires both accounts to be associated with the TEC token
+ * 
+ * IMPORTANT: This is a simulation function for the demo system.
+ * 
+ * For production deployment, you would need to:
+ * 1. Create Hedera accounts for each factory
+ * 2. Associate each account with the TEC token
+ * 3. Execute actual TransferTransaction on Hedera network
+ * 
+ * Example production implementation:
+ * 
+ * const { TransferTransaction, AccountId, TokenId } = require("@hashgraph/sdk");
+ * const { client } = initializeHederaClient();
+ * 
+ * const transferTx = await new TransferTransaction()
+ *   .addTokenTransfer(TokenId.fromString(TEC_TOKEN_ID), 
+ *                     AccountId.fromString(fromAccount.hederaAccountId), -amount)
+ *   .addTokenTransfer(TokenId.fromString(TEC_TOKEN_ID), 
+ *                     AccountId.fromString(toAccount.hederaAccountId), amount)
+ *   .freezeWith(client)
+ *   .execute(client);
+ * 
+ * const receipt = await transferTx.getReceipt(client);
+ * return transferTx.transactionId.toString();
+ * 
+ * @param {Object} fromAccount - Factory sending TEC
+ * @param {Object} toAccount - Factory receiving TEC
+ * @param {number} amount - Amount of TEC to transfer
+ * @returns {string} Transaction ID (simulated for demo)
  */
 async function transferTECOnHedera(fromAccount, toAccount, amount) {
   if (!TEC_TOKEN_ID) {
     throw new Error('TEC_TOKEN_ID not configured');
   }
 
-  // For this demo, we're tracking in database
-  // In production, you would need Hedera account IDs for each factory
-  // and execute actual token transfers
-  console.log(`TEC Transfer: ${amount} from ${fromAccount.factoryId} to ${toAccount.factoryId}`);
+  // SIMULATION MODE: For demo purposes, we track transfers in database only
+  // This allows the system to work without requiring Hedera accounts for each factory
+  console.log(`[SIMULATION] TEC Transfer: ${amount} TEC from ${fromAccount.factoryId} to ${toAccount.factoryId}`);
+  console.log(`[SIMULATION] To enable real transfers, implement Hedera account creation per factory`);
+  
+  // Return simulated transaction ID
   return `SIMULATED_${Date.now()}`;
 }
 

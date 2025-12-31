@@ -33,14 +33,15 @@ const PORT = process.env.PORT || 3000;
 
 /**
  * Initialize database on startup
+ * Uses a promise to prevent race conditions from concurrent requests
  */
-let dbInitialized = false;
+let dbInitPromise = null;
 
 async function ensureDatabase() {
-  if (!dbInitialized) {
-    await initDatabase();
-    dbInitialized = true;
+  if (!dbInitPromise) {
+    dbInitPromise = initDatabase();
   }
+  await dbInitPromise;
 }
 
 /**
