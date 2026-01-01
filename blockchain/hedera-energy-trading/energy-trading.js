@@ -302,7 +302,7 @@ async function executeTrade(tradeId) {
         hederaTxId = await transferTECOnHedera(buyer, seller, trade.totalPrice);
         console.log(`=== Trade ${trade.tradeId} completed on Hedera ===\n`);
       } catch (error) {
-        // Rollback database changes if Hedera transfer fails
+        // No rollback needed - database hasn't been updated yet
         throw new Error(`Hedera TEC transfer failed: ${error.message}`);
       }
     }
@@ -371,6 +371,7 @@ async function transferTECOnHedera(fromAccount, toAccount, amount) {
 
   // Convert amount to token smallest unit (TEC has 2 decimals)
   // e.g., 100 TEC = 10000 in smallest unit
+  // Math.floor ensures we don't send fractional smallest units which are not allowed
   const amountInSmallestUnit = Math.floor(amount * 100);
 
   console.log(`Executing real TEC transfer: ${amount} TEC from ${fromAccount.factoryId} to ${toAccount.factoryId}`);
