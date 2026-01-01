@@ -11,7 +11,7 @@ const {
   TokenId,
   AccountId
 } = require("@hashgraph/sdk");
-const { initializeHederaClient, createFactoryAccount, associateTokenWithAccount, transferTokensBetweenAccounts } = require("./hedera-client");
+const { initializeHederaClient, createFactoryAccount, associateTokenWithAccount, transferTokensBetweenAccounts, mintTECTokens } = require("./hedera-client");
 const { getDatabase, dbRun, dbGet, dbAll } = require("./database");
 
 // Get TEC token ID from environment
@@ -128,6 +128,7 @@ async function registerFactory(factoryData) {
 
 /**
  * Mint energy tokens (add surplus energy)
+ * Also mints corresponding TEC tokens on Hedera blockchain
  */
 async function mintEnergyTokens(factoryId, amount) {
   if (amount <= 0) {
@@ -143,22 +144,45 @@ async function mintEnergyTokens(factoryId, amount) {
       throw new Error(`Factory ${factoryId} not found`);
     }
 
-    // Update energy balance
+    // Mint TEC tokens on Hedera if token is configured
+    let hederaMintTxId = null;
+    if (TEC_TOKEN_ID) {
+      try {
+        console.log(`\n=== Minting TEC tokens for ${factoryId} ===`);
+        
+        // Convert energy amount to TEC tokens (in smallest unit)
+        // For renewable energy, 1 kWh of energy = equivalent TEC value
+        // With 2 decimals, multiply by 100 to get smallest unit
+        const tecAmountInSmallestUnit = Math.floor(amount * TEC_DECIMAL_MULTIPLIER);
+        
+        console.log(`Minting ${amount} TEC (${tecAmountInSmallestUnit} in smallest unit) on Hedera blockchain...`);
+        
+        hederaMintTxId = await mintTECTokens(TEC_TOKEN_ID, tecAmountInSmallestUnit);
+        
+        console.log(`=== TEC tokens minted successfully ===\n`);
+      } catch (error) {
+        // Fail the entire operation if Hedera minting fails
+        throw new Error(`Failed to mint TEC tokens on Hedera: ${error.message}`);
+      }
+    }
+
+    // Update energy balance in local database
     const newBalance = factory.energyBalance + amount;
     await dbRun(db, 'UPDATE factories SET energyBalance = ?, updatedAt = strftime(\'%s\', \'now\') WHERE factoryId = ?', 
       [newBalance, factoryId]);
 
     // Record transaction history
     await dbRun(db, `
-      INSERT INTO transaction_history (factoryId, transactionType, amount)
-      VALUES (?, 'MINT', ?)
-    `, [factoryId, amount]);
+      INSERT INTO transaction_history (factoryId, transactionType, amount, hederaTransactionId)
+      VALUES (?, 'MINT', ?, ?)
+    `, [factoryId, amount, hederaMintTxId]);
 
     return {
       factoryId,
       previousBalance: factory.energyBalance,
       newBalance,
-      minted: amount
+      minted: amount,
+      hederaTransactionId: hederaMintTxId
     };
   } finally {
     db.close();
