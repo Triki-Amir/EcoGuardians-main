@@ -10,6 +10,7 @@ const {
   AccountCreateTransaction,
   TokenAssociateTransaction,
   TransferTransaction,
+  TokenMintTransaction,
   AccountId,
   TokenId
 } = require("@hashgraph/sdk");
@@ -171,9 +172,67 @@ async function transferTokensBetweenAccounts(fromAccountId, fromAccountPrivateKe
   }
 }
 
+/**
+ * Mint TEC tokens on Hedera network
+ * Increases the total supply of TEC tokens
+ * 
+ * @param {string} tokenId - Token ID to mint
+ * @param {number} amount - Amount to mint (in token smallest unit)
+ * @returns {Promise<string>} Transaction ID
+ */
+async function mintTECTokens(tokenId, amount) {
+  const { client, operatorKey } = initializeHederaClient();
+  
+  try {
+    if (!tokenId) {
+      throw new Error('Token ID is required for minting');
+    }
+
+    if (amount <= 0) {
+      throw new Error('Mint amount must be positive');
+    }
+
+    console.log(`Minting ${amount} TEC token units on Hedera...`);
+    
+    // Create token mint transaction
+    const mintTx = await new TokenMintTransaction()
+      .setTokenId(TokenId.fromString(tokenId))
+      .setAmount(amount)
+      .freezeWith(client);
+
+    // Sign with supply key (operator key in this case)
+    const signedTx = await mintTx.sign(operatorKey);
+
+    // Execute transaction
+    const txResponse = await signedTx.execute(client);
+
+    // Get receipt to confirm
+    const receipt = await txResponse.getReceipt(client);
+
+    console.log(`✓ Minted ${amount} TEC tokens successfully`);
+    console.log(`  Transaction ID: ${txResponse.transactionId.toString()}`);
+    console.log(`  New Total Supply: ${receipt.totalSupply.toString()}`);
+    console.log(`  View on HashScan: https://hashscan.io/testnet/transaction/${txResponse.transactionId.toString()}`);
+
+    return txResponse.transactionId.toString();
+  } catch (error) {
+    console.error('Failed to mint TEC tokens:', error.message);
+    
+    // Provide more specific error messages
+    if (error.message.includes('TOKEN_HAS_NO_SUPPLY_KEY')) {
+      throw new Error('Token does not have a supply key configured for minting');
+    }
+    
+    throw new Error(`Hedera token mint failed: ${error.message}`);
+  } finally {
+    client.close();
+  }
+}
+
 module.exports = { 
   initializeHederaClient, 
   createFactoryAccount, 
   associateTokenWithAccount,
-  transferTokensBetweenAccounts
+  transferTokensBetweenAccounts,
+  mintTECTokens
 };
