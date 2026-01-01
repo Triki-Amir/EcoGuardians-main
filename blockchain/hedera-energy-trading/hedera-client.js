@@ -192,7 +192,7 @@ async function mintTECTokens(tokenId, amount) {
       throw new Error('Mint amount must be positive');
     }
 
-    console.log(`Minting ${amount} TEC tokens (smallest unit) on Hedera...`);
+    console.log(`Minting ${amount} TEC token units on Hedera...`);
     
     // Create token mint transaction
     const mintTx = await new TokenMintTransaction()

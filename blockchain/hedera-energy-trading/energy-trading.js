@@ -147,6 +147,11 @@ async function mintEnergyTokens(factoryId, amount) {
     // Mint TEC tokens on Hedera if token is configured
     let hederaMintTxId = null;
     if (TEC_TOKEN_ID) {
+      // Validate token ID format
+      if (!/^0\.0\.\d+$/.test(TEC_TOKEN_ID)) {
+        throw new Error(`Invalid TEC_TOKEN_ID format: ${TEC_TOKEN_ID}. Expected format: 0.0.xxxxx`);
+      }
+      
       try {
         console.log(`\n=== Minting TEC tokens for ${factoryId} ===`);
         
@@ -162,7 +167,7 @@ async function mintEnergyTokens(factoryId, amount) {
         console.log(`=== TEC tokens minted successfully ===\n`);
       } catch (error) {
         // Fail the entire operation if Hedera minting fails
-        throw new Error(`Failed to mint TEC tokens on Hedera: ${error.message}`);
+        throw new Error(`Failed to mint ${amount} TEC tokens for factory ${factoryId} on Hedera: ${error.message}`);
       }
     }
 
