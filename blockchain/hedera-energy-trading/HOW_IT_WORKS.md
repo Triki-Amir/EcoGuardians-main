@@ -346,7 +346,8 @@ CREATE TABLE transaction_history (
 
 **Transaction Types:**
 - `REGISTER`: Factory registration
-- `MINT`: Energy token creation
+- `MINT`: Energy token creation (mints TEC to treasury)
+- `TEC_TRANSFER_IN`: TEC tokens transferred from treasury to factory
 - `TRANSFER_IN`: Received energy
 - `TRANSFER_OUT`: Sent energy
 - `TRADE_BUY`: Purchased energy
@@ -393,11 +394,29 @@ POST /api/factory/register
 ```
 Creates a new factory in the system with initial balances.
 
+**What happens during registration:**
+1. Creates a new Hedera account for the factory (10 HBAR initial balance)
+2. Associates the TEC token with the factory's account
+3. If `currencyBalance > 0`, transfers initial TEC tokens from treasury to factory
+4. Stores factory information in database
+5. Records registration transaction in history
+
+**Result:** Factory has its own Hedera account and can start trading with initial TEC balance.
+
 #### 2. Energy Minting
 ```http
 POST /api/energy/mint
 ```
 Increases a factory's energy balance when they generate surplus.
+
+**What happens during minting:**
+1. Mints TEC tokens on Hedera network (increases total supply)
+2. Minted tokens go to treasury account initially
+3. Transfers minted TEC tokens from treasury to factory's Hedera account
+4. Updates both `energyBalance` and `currencyBalance` in database (1:1 ratio)
+5. Records both mint and transfer transactions in history
+
+**Result:** Factory receives both energy tokens and TEC tokens they can use for trading.
 
 #### 3. Direct Transfer
 ```http
