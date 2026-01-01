@@ -78,6 +78,7 @@ async function registerFactory(factoryData) {
     // Create Hedera account for the factory
     let hederaAccountId = null;
     let hederaPrivateKey = null;
+    let initialTecTransferTxId = null;
     
     if (TEC_TOKEN_ID) {
       try {
@@ -89,6 +90,33 @@ async function registerFactory(factoryData) {
         // Associate the account with TEC token
         console.log(`Associating TEC token with account ${hederaAccountId}...`);
         await associateTokenWithAccount(hederaAccountId, hederaPrivateKey, TEC_TOKEN_ID);
+        
+        // Transfer initial TEC amount from treasury to factory
+        if (currencyBalance && currencyBalance > 0) {
+          const { operatorKey, treasuryId } = initializeHederaClient();
+          
+          // Get treasury private key from environment
+          const treasuryPrivateKey = process.env.MY_PRIVATE_KEY;
+          
+          if (!treasuryPrivateKey) {
+            throw new Error('Treasury private key not found in environment');
+          }
+          
+          console.log(`Transferring initial ${currencyBalance} TEC from treasury to factory ${factoryId}...`);
+          
+          // Convert TEC amount to smallest unit
+          const tecAmountInSmallestUnit = Math.floor(currencyBalance * TEC_DECIMAL_MULTIPLIER);
+          
+          initialTecTransferTxId = await transferTokensBetweenAccounts(
+            treasuryId,
+            treasuryPrivateKey,
+            hederaAccountId,
+            TEC_TOKEN_ID,
+            tecAmountInSmallestUnit
+          );
+          
+          console.log(`✓ Initial TEC transfer completed: ${initialTecTransferTxId}`);
+        }
         
         // TODO: Add account cleanup if token association fails
         // Current limitation: If association fails, the account is orphaned with 10 HBAR
@@ -107,9 +135,9 @@ async function registerFactory(factoryData) {
 
     // Record transaction history
     await dbRun(db, `
-      INSERT INTO transaction_history (factoryId, transactionType, amount)
-      VALUES (?, 'REGISTER', ?)
-    `, [factoryId, initialBalance || 0]);
+      INSERT INTO transaction_history (factoryId, transactionType, amount, hederaTransactionId)
+      VALUES (?, 'REGISTER', ?, ?)
+    `, [factoryId, initialBalance || 0, initialTecTransferTxId]);
 
     return {
       factoryId,
@@ -119,7 +147,8 @@ async function registerFactory(factoryData) {
       energyBalance: initialBalance || 0,
       currencyBalance: currencyBalance || 0,
       dailyConsumption: dailyConsumption || 0,
-      availableEnergy: availableEnergy || 0
+      availableEnergy: availableEnergy || 0,
+      initialTecTransferTxId
     };
   } finally {
     db.close();
@@ -129,6 +158,7 @@ async function registerFactory(factoryData) {
 /**
  * Mint energy tokens (add surplus energy)
  * Also mints corresponding TEC tokens on Hedera blockchain
+ * and transfers them from treasury to factory account
  */
 async function mintEnergyTokens(factoryId, amount) {
   if (amount <= 0) {
@@ -146,6 +176,8 @@ async function mintEnergyTokens(factoryId, amount) {
 
     // Mint TEC tokens on Hedera if token is configured
     let hederaMintTxId = null;
+    let hederaTransferTxId = null;
+    
     if (TEC_TOKEN_ID) {
       // Validate token ID format
       if (!/^0\.0\.\d+$/.test(TEC_TOKEN_ID)) {
@@ -165,29 +197,68 @@ async function mintEnergyTokens(factoryId, amount) {
         hederaMintTxId = await mintTECTokens(TEC_TOKEN_ID, tecAmountInSmallestUnit);
         
         console.log(`=== TEC tokens minted successfully ===\n`);
+        
+        // Transfer minted TEC from treasury to factory account
+        if (factory.hederaAccountId && factory.hederaPrivateKey) {
+          const { treasuryId } = initializeHederaClient();
+          const treasuryPrivateKey = process.env.MY_PRIVATE_KEY;
+          
+          if (!treasuryPrivateKey) {
+            throw new Error('Treasury private key not found in environment');
+          }
+          
+          console.log(`\n=== Transferring minted TEC from treasury to factory ${factoryId} ===`);
+          console.log(`Transferring ${amount} TEC from treasury to factory account ${factory.hederaAccountId}...`);
+          
+          hederaTransferTxId = await transferTokensBetweenAccounts(
+            treasuryId,
+            treasuryPrivateKey,
+            factory.hederaAccountId,
+            TEC_TOKEN_ID,
+            tecAmountInSmallestUnit
+          );
+          
+          console.log(`✓ TEC transfer to factory completed: ${hederaTransferTxId}`);
+          console.log(`=== Transfer completed successfully ===\n`);
+        } else {
+          console.warn(`Warning: Factory ${factoryId} does not have a Hedera account. TEC remains in treasury.`);
+        }
+        
       } catch (error) {
-        // Fail the entire operation if Hedera minting fails
-        throw new Error(`Failed to mint ${amount} TEC tokens for factory ${factoryId} on Hedera: ${error.message}`);
+        // Fail the entire operation if Hedera minting or transfer fails
+        throw new Error(`Failed to mint/transfer ${amount} TEC tokens for factory ${factoryId} on Hedera: ${error.message}`);
       }
     }
 
-    // Update energy balance in local database
-    const newBalance = factory.energyBalance + amount;
-    await dbRun(db, 'UPDATE factories SET energyBalance = ?, updatedAt = strftime(\'%s\', \'now\') WHERE factoryId = ?', 
-      [newBalance, factoryId]);
+    // Update energy balance and currency balance in local database
+    const newEnergyBalance = factory.energyBalance + amount;
+    const newCurrencyBalance = factory.currencyBalance + amount;
+    
+    await dbRun(db, 'UPDATE factories SET energyBalance = ?, currencyBalance = ?, updatedAt = strftime(\'%s\', \'now\') WHERE factoryId = ?', 
+      [newEnergyBalance, newCurrencyBalance, factoryId]);
 
-    // Record transaction history
+    // Record transaction history for mint
     await dbRun(db, `
       INSERT INTO transaction_history (factoryId, transactionType, amount, hederaTransactionId)
       VALUES (?, 'MINT', ?, ?)
     `, [factoryId, amount, hederaMintTxId]);
+    
+    // Record transaction history for transfer if it occurred
+    if (hederaTransferTxId) {
+      await dbRun(db, `
+        INSERT INTO transaction_history (factoryId, transactionType, amount, hederaTransactionId)
+        VALUES (?, 'TEC_TRANSFER_IN', ?, ?)
+      `, [factoryId, amount, hederaTransferTxId]);
+    }
 
     return {
       factoryId,
       previousBalance: factory.energyBalance,
-      newBalance,
+      newBalance: newEnergyBalance,
       minted: amount,
-      hederaTransactionId: hederaMintTxId
+      hederaMintTransactionId: hederaMintTxId,
+      hederaTransferTransactionId: hederaTransferTxId,
+      currencyBalance: newCurrencyBalance
     };
   } finally {
     db.close();
