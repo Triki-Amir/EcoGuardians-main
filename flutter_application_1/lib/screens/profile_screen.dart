@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import '../services/api_service.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   final VoidCallback onSignOut;
   final VoidCallback onBack;
   final String factoryId;
@@ -19,6 +20,38 @@ class ProfileScreen extends StatelessWidget {
     this.availableEnergy,
     this.dailyConsumption,
   });
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  String? _hederaAccountId;
+  double? _tecBalance;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchFactoryData();
+  }
+
+  Future<void> _fetchFactoryData() async {
+    try {
+      final result = await ApiService.getFactory(widget.factoryId);
+      final factoryData = result['data'] as Map<String, dynamic>;
+      
+      setState(() {
+        _hederaAccountId = factoryData['hederaAccountId'] as String?;
+        _tecBalance = (factoryData['currencyBalance'] as num?)?.toDouble();
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -82,7 +115,7 @@ class ProfileScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          factoryName.isNotEmpty ? factoryName : factoryId,
+                          widget.factoryName.isNotEmpty ? widget.factoryName : widget.factoryId,
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 20,
@@ -90,9 +123,25 @@ class ProfileScreen extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          'ID: $factoryId',
+                          'Factory ID: ${widget.factoryId}',
                           style: const TextStyle(color: Colors.grey, fontSize: 12),
                         ),
+                        if (_hederaAccountId != null) ...[
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              const Icon(Icons.verified, color: Colors.blue, size: 14),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  'Hedera ID: $_hederaAccountId',
+                                  style: const TextStyle(color: Colors.blueAccent, fontSize: 11),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -124,14 +173,14 @@ class ProfileScreen extends StatelessWidget {
                     Icons.flash_on,
                     Colors.green,
                     'Available Energy',
-                    '${availableEnergy?.toStringAsFixed(1) ?? '0.0'} kWh',
+                    '${widget.availableEnergy?.toStringAsFixed(1) ?? '0.0'} kWh',
                   ),
                   const Divider(color: Colors.grey, height: 24),
                   _buildInfrastructureRow(
                     Icons.power,
                     Colors.orange,
                     'Daily Consumption',
-                    '${dailyConsumption?.toStringAsFixed(1) ?? '0.0'} kWh',
+                    '${widget.dailyConsumption?.toStringAsFixed(1) ?? '0.0'} kWh',
                   ),
                 ],
               ),
@@ -198,19 +247,63 @@ class ProfileScreen extends StatelessWidget {
                                 fontSize: 12,
                               ),
                             ),
-                            Text(
-                              '${currencyBalance?.toStringAsFixed(2) ?? '0.00'} TEC',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                            _isLoading
+                                ? const SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : Text(
+                                    '${_tecBalance?.toStringAsFixed(2) ?? widget.currencyBalance?.toStringAsFixed(2) ?? '0.00'} TEC',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
                           ],
                         ),
                       ),
                     ],
                   ),
+                  if (_hederaAccountId != null) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.account_balance, color: Colors.blueAccent, size: 16),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Hedera Account',
+                                  style: TextStyle(color: Colors.grey, fontSize: 10),
+                                ),
+                                Text(
+                                  _hederaAccountId!,
+                                  style: const TextStyle(
+                                    color: Colors.blueAccent,
+                                    fontSize: 11,
+                                    fontFamily: 'monospace',
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -518,7 +611,7 @@ class ProfileScreen extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           OutlinedButton(
-            onPressed: onSignOut,
+            onPressed: widget.onSignOut,
             style: OutlinedButton.styleFrom(
               side: const BorderSide(color: Colors.red),
             ),

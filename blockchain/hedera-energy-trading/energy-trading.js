@@ -3,6 +3,7 @@
  * Core business logic for energy token operations using TEC
  */
 
+const bcrypt = require('bcrypt');
 const {
   TransferTransaction,
   AccountBalanceQuery,
@@ -64,7 +65,7 @@ async function logToHederaTopic(topicId, message) {
  * Register a new factory
  */
 async function registerFactory(factoryData) {
-  const { factoryId, name, initialBalance, energyType, currencyBalance, dailyConsumption, availableEnergy } = factoryData;
+  const { factoryId, name, passwordHash, initialBalance, energyType, currencyBalance, dailyConsumption, availableEnergy } = factoryData;
   
   const db = await getDatabase();
   
@@ -129,9 +130,9 @@ async function registerFactory(factoryData) {
 
     // Insert factory into database
     await dbRun(db, `
-      INSERT INTO factories (factoryId, name, hederaAccountId, hederaPrivateKey, energyType, energyBalance, currencyBalance, dailyConsumption, availableEnergy)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `, [factoryId, name, hederaAccountId, hederaPrivateKey, energyType, initialBalance || 0, currencyBalance || 0, dailyConsumption || 0, availableEnergy || 0]);
+      INSERT INTO factories (factoryId, name, passwordHash, hederaAccountId, hederaPrivateKey, energyType, energyBalance, currencyBalance, dailyConsumption, availableEnergy)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [factoryId, name, passwordHash, hederaAccountId, hederaPrivateKey, energyType, initialBalance || 0, currencyBalance || 0, dailyConsumption || 0, availableEnergy || 0]);
 
     // Record transaction history
     await dbRun(db, `
@@ -656,6 +657,41 @@ async function getEnergyStatus(factoryId) {
   }
 }
 
+/**
+ * Login factory with password authentication
+ */
+async function loginFactory(factoryId, password) {
+  const db = await getDatabase();
+  
+  try {
+    const factory = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = ?', [factoryId]);
+    if (!factory) {
+      throw new Error('Invalid factory ID or password');
+    }
+
+    // Verify password
+    const passwordMatch = await bcrypt.compare(password, factory.passwordHash);
+    if (!passwordMatch) {
+      throw new Error('Invalid factory ID or password');
+    }
+
+    // Return factory data without sensitive information
+    return {
+      factoryId: factory.factoryId,
+      name: factory.name,
+      hederaAccountId: factory.hederaAccountId,
+      energyType: factory.energyType,
+      energyBalance: factory.energyBalance,
+      currencyBalance: factory.currencyBalance,
+      dailyConsumption: factory.dailyConsumption,
+      availableEnergy: factory.availableEnergy,
+      createdAt: factory.createdAt
+    };
+  } finally {
+    db.close();
+  }
+}
+
 module.exports = {
   createEnergyTradingTopic,
   logToHederaTopic,
@@ -670,5 +706,6 @@ module.exports = {
   getFactoryHistory,
   updateAvailableEnergy,
   updateDailyConsumption,
-  getEnergyStatus
+  getEnergyStatus,
+  loginFactory
 };

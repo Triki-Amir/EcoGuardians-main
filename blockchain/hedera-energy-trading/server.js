@@ -6,6 +6,7 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
+const bcrypt = require('bcrypt');
 const { initDatabase } = require('./database');
 const {
   registerFactory,
@@ -19,7 +20,8 @@ const {
   getFactoryHistory,
   updateAvailableEnergy,
   updateDailyConsumption,
-  getEnergyStatus
+  getEnergyStatus,
+  loginFactory
 } = require('./energy-trading');
 
 // Initialize Express application
@@ -62,17 +64,22 @@ app.get('/api/health', (req, res) => {
 /**
  * Register a new factory in the industrial zone
  * POST /api/factory/register
- * Body: { factoryId, name, initialBalance, energyType, currencyBalance, dailyConsumption, availableEnergy }
+ * Body: { factoryId, name, password, initialBalance, energyType, currencyBalance, dailyConsumption, availableEnergy }
  */
 app.post('/api/factory/register', async (req, res) => {
   try {
     await ensureDatabase();
     
-    const { factoryId, name, initialBalance, energyType, currencyBalance, dailyConsumption, availableEnergy } = req.body;
+    const { factoryId, name, password, initialBalance, energyType, currencyBalance, dailyConsumption, availableEnergy } = req.body;
 
     // Validate required fields
-    if (!factoryId || !name || !energyType) {
-      return res.status(400).json({ error: 'Missing required fields: factoryId, name, energyType' });
+    if (!factoryId || !name || !password || !energyType) {
+      return res.status(400).json({ error: 'Missing required fields: factoryId, name, password, energyType' });
+    }
+
+    // Validate password strength
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters long' });
     }
 
     // Validate numeric fields
@@ -85,9 +92,14 @@ app.post('/api/factory/register', async (req, res) => {
       return res.status(400).json({ error: 'initialBalance must be a non-negative number' });
     }
 
+    // Hash password
+    const saltRounds = 10;
+    const passwordHash = await bcrypt.hash(password, saltRounds);
+
     const factoryData = {
       factoryId,
       name,
+      passwordHash,
       initialBalance: initBalNum,
       energyType,
       currencyBalance: currencyBalNum,
@@ -104,6 +116,34 @@ app.post('/api/factory/register', async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Login with factory ID and password
+ * POST /api/factory/login
+ * Body: { factoryId, password }
+ */
+app.post('/api/factory/login', async (req, res) => {
+  try {
+    await ensureDatabase();
+    
+    const { factoryId, password } = req.body;
+
+    // Validate required fields
+    if (!factoryId || !password) {
+      return res.status(400).json({ error: 'Missing required fields: factoryId, password' });
+    }
+
+    const result = await loginFactory(factoryId, password);
+
+    res.json({
+      success: true,
+      message: `Factory ${factoryId} authenticated successfully`,
+      data: result
+    });
+  } catch (error) {
+    res.status(401).json({ error: error.message });
   }
 });
 
@@ -436,6 +476,7 @@ const server = app.listen(PORT, async () => {
   console.log('Available endpoints:');
   console.log('  GET  /api/health');
   console.log('  POST /api/factory/register');
+  console.log('  POST /api/factory/login');
   console.log('  POST /api/energy/mint');
   console.log('  POST /api/energy/transfer');
   console.log('  POST /api/trade/create');
