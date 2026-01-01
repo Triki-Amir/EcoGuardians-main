@@ -124,7 +124,12 @@ class _MainScreenState extends State<MainScreen> {
           currentFactoryId: _currentFactoryId,
         );
       case 'blockchain':
-        return BlockchainScreen(onBack: () => _handleNavigate('dashboard'));
+        final provider = Provider.of<EnergyDataProvider>(context, listen: false);
+        return BlockchainScreen(
+          onBack: () => _handleNavigate('dashboard'),
+          factoryId: _currentFactoryId,
+          factoryName: _currentFactoryName,
+        );
       case 'profile':
         // Get current factory data from provider if available
         final provider = Provider.of<EnergyDataProvider>(context, listen: false);

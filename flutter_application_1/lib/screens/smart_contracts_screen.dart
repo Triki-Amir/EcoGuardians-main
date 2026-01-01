@@ -174,7 +174,42 @@ class _SmartContractsScreenState extends State<SmartContractsScreen> {
                   ),
                 ),
               ),
-              SliverList(
+              if (offers.isEmpty)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Center(
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.description_outlined,
+                            size: 64,
+                            color: Colors.grey.shade700,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'No trading offers available',
+                            style: TextStyle(
+                              color: Colors.grey.shade600,
+                              fontSize: 16,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Create your first offer using the + button above',
+                            style: TextStyle(
+                              color: Colors.grey.shade700,
+                              fontSize: 12,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                )
+              else
+                SliverList(
                 delegate: SliverChildBuilderDelegate(
                   (context, index) {
                     final offer = offers[index];

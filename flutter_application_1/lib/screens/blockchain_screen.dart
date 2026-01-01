@@ -1,10 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../services/api_service.dart';
 
 class BlockchainScreen extends StatefulWidget {
   final VoidCallback onBack;
+  final String factoryId;
+  final String factoryName;
 
-  const BlockchainScreen({super.key, required this.onBack});
+  const BlockchainScreen({
+    super.key,
+    required this.onBack,
+    required this.factoryId,
+    required this.factoryName,
+  });
 
   @override
   State<BlockchainScreen> createState() => _BlockchainScreenState();
@@ -12,6 +20,9 @@ class BlockchainScreen extends StatefulWidget {
 
 class _BlockchainScreenState extends State<BlockchainScreen> with SingleTickerProviderStateMixin {
   late AnimationController _pulseController;
+  String? _hederaAccountId;
+  double? _tecBalance;
+  bool _isLoading = true;
 
   @override
   void initState() {
@@ -20,6 +31,24 @@ class _BlockchainScreenState extends State<BlockchainScreen> with SingleTickerPr
       vsync: this,
       duration: const Duration(seconds: 2),
     )..repeat();
+    _fetchFactoryData();
+  }
+
+  Future<void> _fetchFactoryData() async {
+    try {
+      final result = await ApiService.getFactory(widget.factoryId);
+      final factoryData = result['data'] as Map<String, dynamic>;
+      
+      setState(() {
+        _hederaAccountId = factoryData['hederaAccountId'] as String?;
+        _tecBalance = (factoryData['currencyBalance'] as num?)?.toDouble();
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   @override
@@ -121,14 +150,23 @@ class _BlockchainScreenState extends State<BlockchainScreen> with SingleTickerPr
                             ),
                           ),
                           const SizedBox(height: 4),
-                          const Text(
-                            '2,847 TEC',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 32,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                          _isLoading
+                              ? const SizedBox(
+                                  height: 32,
+                                  width: 32,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : Text(
+                                  '${_tecBalance?.toStringAsFixed(2) ?? '0.00'} TEC',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 32,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                           Text(
                             'TEC Coin Balance',
                             style: TextStyle(
@@ -397,6 +435,58 @@ class _BlockchainScreenState extends State<BlockchainScreen> with SingleTickerPr
                     ],
                   ),
                   const SizedBox(height: 16),
+                  if (_hederaAccountId != null) ...[
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: Colors.blue.withOpacity(0.3),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.account_balance, color: Colors.blueAccent, size: 16),
+                              const SizedBox(width: 8),
+                              const Text(
+                                'Hedera Account ID',
+                                style: TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  _hederaAccountId!,
+                                  style: const TextStyle(
+                                    color: Colors.blueAccent,
+                                    fontSize: 14,
+                                    fontFamily: 'monospace',
+                                  ),
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.copy, size: 16, color: Colors.blueAccent),
+                                onPressed: () => _copyToClipboard(_hederaAccountId!),
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   Row(
                     children: [
                       Expanded(

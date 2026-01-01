@@ -251,7 +251,42 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
 
               // Factory List
-              SliverList(
+              if (factories.isEmpty)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Center(
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.factory_outlined,
+                            size: 64,
+                            color: Colors.grey.shade700,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'No factories available',
+                            style: TextStyle(
+                              color: Colors.grey.shade600,
+                              fontSize: 16,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Other factories will appear here once they register on the network',
+                            style: TextStyle(
+                              color: Colors.grey.shade700,
+                              fontSize: 12,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                )
+              else
+                SliverList(
                 delegate: SliverChildBuilderDelegate(
                   (context, index) {
                     final factory = factories[index];
