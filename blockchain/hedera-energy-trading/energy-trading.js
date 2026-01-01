@@ -231,6 +231,7 @@ async function mintEnergyTokens(factoryId, amount) {
     }
 
     // Update energy balance and currency balance in local database
+    // Note: 1:1 ratio - minting 1 kWh of energy also credits 1 TEC token
     const newEnergyBalance = factory.energyBalance + amount;
     const newCurrencyBalance = factory.currencyBalance + amount;
     
