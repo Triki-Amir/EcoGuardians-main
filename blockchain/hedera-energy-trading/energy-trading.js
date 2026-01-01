@@ -17,6 +17,9 @@ const { getDatabase, dbRun, dbGet, dbAll } = require("./database");
 // Get TEC token ID from environment
 const TEC_TOKEN_ID = process.env.TEC_TOKEN_ID;
 
+// TEC token has 2 decimal places, so we multiply by 100 to get the smallest unit
+const TEC_DECIMAL_MULTIPLIER = 100;
+
 /**
  * Initialize Hedera Topic for immutable transaction records
  */
@@ -86,6 +89,10 @@ async function registerFactory(factoryData) {
         // Associate the account with TEC token
         console.log(`Associating TEC token with account ${hederaAccountId}...`);
         await associateTokenWithAccount(hederaAccountId, hederaPrivateKey, TEC_TOKEN_ID);
+        
+        // TODO: Add account cleanup if token association fails
+        // Current limitation: If association fails, the account is orphaned with 10 HBAR
+        // Future improvement: Delete account and recover HBAR on failure
       } catch (error) {
         console.error('Failed to create Hedera account or associate token:', error.message);
         throw new Error(`Failed to setup Hedera account: ${error.message}`);
@@ -372,7 +379,7 @@ async function transferTECOnHedera(fromAccount, toAccount, amount) {
   // Convert amount to token smallest unit (TEC has 2 decimals)
   // e.g., 100 TEC = 10000 in smallest unit
   // Math.floor ensures we don't send fractional smallest units which are not allowed
-  const amountInSmallestUnit = Math.floor(amount * 100);
+  const amountInSmallestUnit = Math.floor(amount * TEC_DECIMAL_MULTIPLIER);
 
   console.log(`Executing real TEC transfer: ${amount} TEC from ${fromAccount.factoryId} to ${toAccount.factoryId}`);
   console.log(`  From Account: ${fromAccount.hederaAccountId}`);
