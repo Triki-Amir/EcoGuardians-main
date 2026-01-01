@@ -1,6 +1,12 @@
 /**
  * Database Manager for Energy Trading
  * Manages factory records in SQLite database
+ * 
+ * SECURITY WARNING: Private keys are stored in plain text in the database.
+ * For production use, implement encryption using:
+ * - AWS KMS, Azure Key Vault, or HashiCorp Vault for key management
+ * - Database-level encryption at rest
+ * - Application-level encryption before storing keys
  */
 
 const sqlite3 = require('sqlite3').verbose();
@@ -26,6 +32,7 @@ function initDatabase() {
           factoryId TEXT PRIMARY KEY,
           name TEXT NOT NULL,
           hederaAccountId TEXT,
+          hederaPrivateKey TEXT,
           energyType TEXT NOT NULL,
           energyBalance REAL DEFAULT 0,
           currencyBalance REAL DEFAULT 0,

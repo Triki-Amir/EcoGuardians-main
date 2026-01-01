@@ -142,12 +142,18 @@ Expected response:
   "data": {
     "factoryId": "Factory01",
     "name": "Solar Power Plant Alpha",
+    "hederaAccountId": "0.0.XXXXXXX",
     "energyBalance": 1000,
     "energyType": "solar",
     "currencyBalance": 1000
   }
 }
 ```
+
+**Note:** A new Hedera account has been created for Factory01! The account:
+- Has been funded with 10 HBAR for transaction fees
+- Is associated with the TEC token
+- Can now send and receive TEC tokens on the Hedera network
 
 #### 5.3 Register Factory 2 (Wind Farm)
 
@@ -288,10 +294,32 @@ Expected response:
   "message": "Trade TRADE_DEMO_001 executed successfully with TEC payment",
   "data": {
     "tradeId": "TRADE_DEMO_001",
-    "status": "completed"
+    "status": "completed",
+    "hederaTransactionId": "0.0.XXXXX@1234567890.123456789"
   }
 }
 ```
+
+**🎉 Success!** You've just executed a real energy trade on Hedera!
+
+**What just happened:**
+1. ✅ 150 TEC tokens were transferred from Factory02 to Factory01 on Hedera
+2. ✅ 300 kWh of energy was transferred from Factory01 to Factory02
+3. ✅ The transaction is permanently recorded on Hedera blockchain
+4. ✅ You can view the transaction on HashScan explorer
+
+**View on Explorer:**
+Copy the `hederaTransactionId` and visit:
+```
+https://hashscan.io/testnet/transaction/{hederaTransactionId}
+```
+
+You'll see:
+- Token transfer details
+- Sender and receiver accounts
+- Transaction timestamp
+- Transaction fee
+- Complete transaction history
 
 #### 5.9 Verify Final Balances
 
