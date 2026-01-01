@@ -11,7 +11,7 @@ const {
   TokenId,
   AccountId
 } = require("@hashgraph/sdk");
-const { initializeHederaClient } = require("./hedera-client");
+const { initializeHederaClient, createFactoryAccount, associateTokenWithAccount, transferTokensBetweenAccounts } = require("./hedera-client");
 const { getDatabase, dbRun, dbGet, dbAll } = require("./database");
 
 // Get TEC token ID from environment
@@ -72,11 +72,31 @@ async function registerFactory(factoryData) {
       throw new Error(`Factory ${factoryId} already exists`);
     }
 
+    // Create Hedera account for the factory
+    let hederaAccountId = null;
+    let hederaPrivateKey = null;
+    
+    if (TEC_TOKEN_ID) {
+      try {
+        console.log(`Creating Hedera account for factory ${factoryId}...`);
+        const accountInfo = await createFactoryAccount(10); // 10 HBAR initial balance
+        hederaAccountId = accountInfo.accountId;
+        hederaPrivateKey = accountInfo.privateKey;
+
+        // Associate the account with TEC token
+        console.log(`Associating TEC token with account ${hederaAccountId}...`);
+        await associateTokenWithAccount(hederaAccountId, hederaPrivateKey, TEC_TOKEN_ID);
+      } catch (error) {
+        console.error('Failed to create Hedera account or associate token:', error.message);
+        throw new Error(`Failed to setup Hedera account: ${error.message}`);
+      }
+    }
+
     // Insert factory into database
     await dbRun(db, `
-      INSERT INTO factories (factoryId, name, energyType, energyBalance, currencyBalance, dailyConsumption, availableEnergy)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `, [factoryId, name, energyType, initialBalance || 0, currencyBalance || 0, dailyConsumption || 0, availableEnergy || 0]);
+      INSERT INTO factories (factoryId, name, hederaAccountId, hederaPrivateKey, energyType, energyBalance, currencyBalance, dailyConsumption, availableEnergy)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [factoryId, name, hederaAccountId, hederaPrivateKey, energyType, initialBalance || 0, currencyBalance || 0, dailyConsumption || 0, availableEnergy || 0]);
 
     // Record transaction history
     await dbRun(db, `
@@ -87,6 +107,7 @@ async function registerFactory(factoryData) {
     return {
       factoryId,
       name,
+      hederaAccountId,
       energyType,
       energyBalance: initialBalance || 0,
       currencyBalance: currencyBalance || 0,
@@ -258,32 +279,46 @@ async function executeTrade(tradeId) {
     const buyer = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = ?', [trade.buyerId]);
     const seller = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = ?', [trade.sellerId]);
 
+    // Validate Hedera accounts exist
+    if (TEC_TOKEN_ID) {
+      if (!buyer.hederaAccountId || !buyer.hederaPrivateKey) {
+        throw new Error(`Buyer factory ${trade.buyerId} does not have a Hedera account`);
+      }
+      if (!seller.hederaAccountId) {
+        throw new Error(`Seller factory ${trade.sellerId} does not have a Hedera account`);
+      }
+    }
+
     // Check buyer has enough TEC
     if (buyer.currencyBalance < trade.totalPrice) {
       throw new Error(`Buyer has insufficient TEC balance: has ${buyer.currencyBalance}, needs ${trade.totalPrice}`);
     }
 
+    // Execute real TEC token transfer on Hedera
+    let hederaTxId = null;
+    if (TEC_TOKEN_ID) {
+      try {
+        console.log(`\n=== Executing Trade ${trade.tradeId} on Hedera ===`);
+        hederaTxId = await transferTECOnHedera(buyer, seller, trade.totalPrice);
+        console.log(`=== Trade ${trade.tradeId} completed on Hedera ===\n`);
+      } catch (error) {
+        // Rollback database changes if Hedera transfer fails
+        throw new Error(`Hedera TEC transfer failed: ${error.message}`);
+      }
+    }
+
+    // Update local balances after successful Hedera transfer
     // Transfer energy
     await dbRun(db, 'UPDATE factories SET energyBalance = energyBalance - ? WHERE factoryId = ?',
       [trade.amount, trade.sellerId]);
     await dbRun(db, 'UPDATE factories SET energyBalance = energyBalance + ? WHERE factoryId = ?',
       [trade.amount, trade.buyerId]);
 
-    // Transfer TEC (currency)
+    // Transfer TEC (currency) - update local tracking
     await dbRun(db, 'UPDATE factories SET currencyBalance = currencyBalance - ? WHERE factoryId = ?',
       [trade.totalPrice, trade.buyerId]);
     await dbRun(db, 'UPDATE factories SET currencyBalance = currencyBalance + ? WHERE factoryId = ?',
       [trade.totalPrice, trade.sellerId]);
-
-    // If TEC token exists on Hedera, execute actual token transfer
-    let hederaTxId = null;
-    if (TEC_TOKEN_ID) {
-      try {
-        hederaTxId = await transferTECOnHedera(buyer, seller, trade.totalPrice);
-      } catch (error) {
-        console.warn('Hedera TEC transfer failed, recorded in database only:', error.message);
-      }
-    }
 
     // Update trade status
     await dbRun(db, 'UPDATE trades SET status = ?, hederaTransactionId = ? WHERE tradeId = ?',
@@ -313,46 +348,54 @@ async function executeTrade(tradeId) {
 /**
  * Transfer TEC tokens on Hedera network
  * 
- * IMPORTANT: This is a simulation function for the demo system.
- * 
- * For production deployment, you would need to:
- * 1. Create Hedera accounts for each factory
- * 2. Associate each account with the TEC token
- * 3. Execute actual TransferTransaction on Hedera network
- * 
- * Example production implementation:
- * 
- * const { TransferTransaction, AccountId, TokenId } = require("@hashgraph/sdk");
- * const { client } = initializeHederaClient();
- * 
- * const transferTx = await new TransferTransaction()
- *   .addTokenTransfer(TokenId.fromString(TEC_TOKEN_ID), 
- *                     AccountId.fromString(fromAccount.hederaAccountId), -amount)
- *   .addTokenTransfer(TokenId.fromString(TEC_TOKEN_ID), 
- *                     AccountId.fromString(toAccount.hederaAccountId), amount)
- *   .freezeWith(client)
- *   .execute(client);
- * 
- * const receipt = await transferTx.getReceipt(client);
- * return transferTx.transactionId.toString();
+ * This function executes real TransferTransaction on Hedera network
+ * to transfer TEC tokens between factory accounts.
  * 
  * @param {Object} fromAccount - Factory sending TEC
  * @param {Object} toAccount - Factory receiving TEC
- * @param {number} amount - Amount of TEC to transfer
- * @returns {string} Transaction ID (simulated for demo)
+ * @param {number} amount - Amount of TEC to transfer (will be converted to token smallest unit)
+ * @returns {string} Transaction ID from Hedera
  */
 async function transferTECOnHedera(fromAccount, toAccount, amount) {
   if (!TEC_TOKEN_ID) {
     throw new Error('TEC_TOKEN_ID not configured');
   }
 
-  // SIMULATION MODE: For demo purposes, we track transfers in database only
-  // This allows the system to work without requiring Hedera accounts for each factory
-  console.log(`[SIMULATION] TEC Transfer: ${amount} TEC from ${fromAccount.factoryId} to ${toAccount.factoryId}`);
-  console.log(`[SIMULATION] To enable real transfers, implement Hedera account creation per factory`);
-  
-  // Return simulated transaction ID
-  return `SIMULATED_${Date.now()}`;
+  if (!fromAccount.hederaAccountId || !fromAccount.hederaPrivateKey) {
+    throw new Error(`Sender factory ${fromAccount.factoryId} does not have a Hedera account`);
+  }
+
+  if (!toAccount.hederaAccountId) {
+    throw new Error(`Receiver factory ${toAccount.factoryId} does not have a Hedera account`);
+  }
+
+  // Convert amount to token smallest unit (TEC has 2 decimals)
+  // e.g., 100 TEC = 10000 in smallest unit
+  const amountInSmallestUnit = Math.floor(amount * 100);
+
+  console.log(`Executing real TEC transfer: ${amount} TEC from ${fromAccount.factoryId} to ${toAccount.factoryId}`);
+  console.log(`  From Account: ${fromAccount.hederaAccountId}`);
+  console.log(`  To Account: ${toAccount.hederaAccountId}`);
+  console.log(`  Amount: ${amountInSmallestUnit} (smallest unit)`);
+
+  try {
+    const transactionId = await transferTokensBetweenAccounts(
+      fromAccount.hederaAccountId,
+      fromAccount.hederaPrivateKey,
+      toAccount.hederaAccountId,
+      TEC_TOKEN_ID,
+      amountInSmallestUnit
+    );
+
+    console.log(`✓ TEC transfer successful on Hedera`);
+    console.log(`  Transaction ID: ${transactionId}`);
+    console.log(`  View on HashScan: https://hashscan.io/testnet/transaction/${transactionId}`);
+
+    return transactionId;
+  } catch (error) {
+    console.error('Hedera TEC transfer failed:', error.message);
+    throw new Error(`Hedera transfer failed: ${error.message}`);
+  }
 }
 
 /**

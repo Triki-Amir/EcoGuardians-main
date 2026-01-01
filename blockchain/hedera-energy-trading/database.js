@@ -26,6 +26,7 @@ function initDatabase() {
           factoryId TEXT PRIMARY KEY,
           name TEXT NOT NULL,
           hederaAccountId TEXT,
+          hederaPrivateKey TEXT,
           energyType TEXT NOT NULL,
           energyBalance REAL DEFAULT 0,
           currencyBalance REAL DEFAULT 0,
