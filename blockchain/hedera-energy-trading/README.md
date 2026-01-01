@@ -10,9 +10,11 @@ This system transforms the Hyperledger Fabric energy trading network to use **He
 
 - **TEC Token**: Fungible token (TEC - Tunisian Energy Coin) for energy payments
 - **Hedera Hashgraph**: Fast, fair, and secure distributed ledger technology
+- **Real Transactions**: Each factory has its own Hedera account with real on-chain transactions
+- **Token Association**: Automatic token association when factories are registered
 - **Energy Trading**: Create and execute energy trades between factories
 - **Token Management**: Mint energy tokens when surplus is generated
-- **Transaction History**: Complete audit trail on Hedera network
+- **Transaction History**: Complete audit trail on Hedera network (visible on HashScan explorer)
 - **REST API**: Easy integration with factory management systems
 - **SQLite Database**: Local storage for factory and trade data
 
@@ -133,6 +135,13 @@ Content-Type: application/json
 }
 ```
 
+This will:
+1. Create a new Hedera account for the factory (with 10 HBAR initial balance)
+2. Associate the factory's account with the TEC token
+3. Store the factory information in the database
+
+**Note**: Each factory gets its own Hedera account, enabling real on-chain transactions visible on the HashScan explorer.
+
 #### Get Factory Information
 ```bash
 GET /api/factory/Factory01
@@ -215,8 +224,13 @@ Content-Type: application/json
 
 This will:
 1. Transfer energy from seller to buyer
-2. Transfer TEC tokens from buyer to seller
-3. Record transaction on Hedera (if configured)
+2. Execute a real TEC token TransferTransaction on Hedera network (visible on HashScan)
+3. Update local database balances
+4. Return the Hedera transaction ID for verification
+
+**Important**: The transaction will be visible on the Hedera network explorer:
+- Testnet: `https://hashscan.io/testnet/transaction/{transactionId}`
+- Mainnet: `https://hashscan.io/mainnet/transaction/{transactionId}`
 
 #### Get Trade Information
 ```bash

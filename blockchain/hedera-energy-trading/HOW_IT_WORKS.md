@@ -53,16 +53,18 @@ A factory represents an energy producer/consumer in the industrial zone.
 **Properties:**
 - `factoryId`: Unique identifier (e.g., "Factory01")
 - `name`: Human-readable name
+- `hederaAccountId`: Hedera account ID for the factory (e.g., "0.0.12345")
+- `hederaPrivateKey`: Private key for the factory's Hedera account (stored securely)
 - `energyType`: Source of energy (solar, wind, footstep)
 - `energyBalance`: Amount of energy tokens (kWh)
-- `currencyBalance`: Amount of TEC tokens for payments
+- `currencyBalance`: Amount of TEC tokens for payments (local tracking)
 - `dailyConsumption`: Daily energy needs (kWh)
 - `availableEnergy`: Currently available energy (kWh)
 
 **Lifecycle:**
-1. Registration → Creates factory record in database
+1. Registration → Creates factory record in database + Hedera account + Token association
 2. Energy Generation → Mints energy tokens
-3. Trading → Exchanges energy for TEC
+3. Trading → Exchanges energy for TEC (real Hedera transactions)
 4. Consumption → Uses energy tokens
 
 ### 2. Energy Tokens
@@ -147,24 +149,93 @@ POST /api/trade/execute
 
 **System performs:**
 1. Verify buyer has enough TEC (100 TEC)
-2. Transfer energy: Factory01 → Factory02 (200 kWh)
-3. Transfer TEC: Factory02 → Factory01 (100 TEC)
-4. Update trade status to "completed"
-5. Record transaction history
-6. (Optional) Submit to Hedera network
+2. Verify both factories have Hedera accounts with token association
+3. Execute real TEC TransferTransaction on Hedera network (buyer → seller)
+4. Transfer energy: Factory01 → Factory02 (200 kWh) in local database
+5. Update local TEC balances to match Hedera state
+6. Update trade status to "completed" with Hedera transaction ID
+7. Record transaction history with Hedera transaction link
 
 **Final State:**
 ```
 Factory01 (Seller):
   energyBalance: 1000 - 200 = 800 kWh
   currencyBalance: 500 + 100 = 600 TEC
+  Hedera Account: Received 100 TEC (10000 smallest units)
 
 Factory02 (Buyer):
   energyBalance: 500 + 200 = 700 kWh
   currencyBalance: 800 - 100 = 700 TEC
+  Hedera Account: Sent 100 TEC (10000 smallest units)
+  
+Transaction visible on HashScan:
+  https://hashscan.io/testnet/transaction/{transactionId}
 ```
 
 ## Hedera Integration
+
+### Factory Account Creation
+
+Each factory gets its own Hedera account when registered:
+
+```javascript
+// Automatically happens during factory registration
+POST /api/factory/register
+
+// System performs:
+1. Generate new ED25519 key pair for factory
+2. Create Hedera account with 10 HBAR initial balance
+3. Associate account with TEC token
+4. Store account ID and private key in database
+```
+
+**Account Properties:**
+- Initial Balance: 10 HBAR (for transaction fees)
+- Key Type: ED25519 (Hedera standard)
+- Token Association: Automatically associated with TEC token
+- Visibility: All transactions visible on HashScan explorer
+
+### Token Association
+
+Before a factory can receive TEC tokens, its account must be associated with the TEC token:
+
+```javascript
+const associateTx = await new TokenAssociateTransaction()
+  .setAccountId(factoryAccountId)
+  .setTokenIds([tecTokenId])
+  .sign(factoryPrivateKey);
+  
+const txResponse = await associateTx.execute(client);
+```
+
+**Why Token Association?**
+- Hedera security feature: accounts must opt-in to receive tokens
+- Prevents spam tokens
+- Executed automatically during factory registration
+
+### Real Token Transfers
+
+When a trade is executed, real TEC tokens are transferred on Hedera:
+
+```javascript
+const transferTx = await new TransferTransaction()
+  .addTokenTransfer(tecTokenId, buyerAccountId, -amount)
+  .addTokenTransfer(tecTokenId, sellerAccountId, amount)
+  .sign(buyerPrivateKey);
+  
+const txResponse = await transferTx.execute(client);
+const transactionId = txResponse.transactionId.toString();
+
+// Transaction is visible on HashScan:
+// https://hashscan.io/testnet/transaction/{transactionId}
+```
+
+**Transaction Properties:**
+- Real blockchain transaction (not simulated)
+- Immutable and publicly verifiable
+- 3-5 second finality
+- ~$0.0001 transaction fee
+- Visible on HashScan explorer
 
 ### Token Service (HTS)
 
