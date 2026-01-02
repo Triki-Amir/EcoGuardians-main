@@ -40,7 +40,7 @@ To get started with the new system:
 ## 📊 System Comparison
 
 ### Original: Hyperledger Fabric
-- **Location**: `energy-trading-network/`
+- **Location**: Removed (previously at `energy-trading-network/`)
 - **Setup**: 30-60 minutes (Docker, certificates, channels)
 - **Infrastructure**: Self-hosted (Docker containers)
 - **Language**: Go (chaincode) + JavaScript (API)
@@ -66,9 +66,9 @@ To get started with the new system:
 ✅ **Energy Trading** - Create and execute energy trades
 ✅ **TEC Token** - Real cryptocurrency for payments
 ✅ **Transaction History** - Complete audit trail
-✅ **SQLite Database** - Local state management
+✅ **PostgreSQL Database** - Production-grade data persistence
 ✅ **Hedera Integration** - Token Service (HTS) ready
-✅ **API Compatibility** - 100% compatible with Hyperledger API
+✅ **API Compatibility** - 100% compatible with original API
 
 ### Improvements
 
@@ -133,7 +133,7 @@ The system supports these real-world scenarios:
        │                │
        ▼                ▼
 ┌─────────────┐  ┌────────────────────┐
-│   SQLite    │  │   Hedera Network   │
+│  PostgreSQL │  │   Hedera Network   │
 │  Database   │  │  • TEC Token       │
 │  • State    │  │  • Blockchain      │
 └─────────────┘  └────────────────────┘
@@ -144,7 +144,7 @@ The system supports these real-world scenarios:
 - **Blockchain**: Hedera Hashgraph
 - **Token**: TEC (Tunisian Energy Coin)
 - **Backend**: Node.js + Express.js
-- **Database**: SQLite
+- **Database**: PostgreSQL
 - **SDK**: @hashgraph/sdk v2.54.2
 - **API Style**: RESTful HTTP/JSON
 

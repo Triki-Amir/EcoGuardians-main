@@ -52,7 +52,7 @@ A basic Hedera implementation for renewable energy tokenization using ECoin toke
 
 **Features:**
 - Basic token creation
-- Energy data recording in SQLite
+- Energy data recording in PostgreSQL
 - Simple token transfers
 - Server API for energy data submission
 
@@ -74,7 +74,7 @@ A basic Hedera implementation for renewable energy tokenization using ECoin toke
 | **Trade Creation** | ✅ Yes | ❌ No |
 | **Trade Execution** | ✅ With TEC payment | ❌ No |
 | **REST API** | ✅ Full CRUD | ⚠️ Basic |
-| **Database** | ✅ SQLite with full schema | ⚠️ Simple table |
+| **Database** | ✅ PostgreSQL production-ready | ⚠️ Simple table |
 | **Documentation** | ✅ Comprehensive | ⚠️ Basic |
 | **Production Ready** | ✅ Yes | ⚠️ Demo only |
 
@@ -99,7 +99,7 @@ A basic Hedera implementation for renewable energy tokenization using ECoin toke
 
 ### For Existing Hyperledger Users
 
-If you're migrating from the Hyperledger Fabric energy trading network (`/energy-trading-network/`):
+The original Hyperledger Fabric energy trading network has been replaced with Hedera Hashgraph.
 
 1. Read the transformation summary:
    ```bash
@@ -107,7 +107,7 @@ If you're migrating from the Hyperledger Fabric energy trading network (`/energy
    cat TRANSFORMATION_SUMMARY.md
    ```
 
-2. The new system maintains **100% API compatibility** with the original Hyperledger endpoints
+2. The new system maintains **100% API compatibility** with the original endpoints
 3. Setup is **much simpler** (no Docker, no complex network configuration)
 4. All features are preserved and enhanced
 
@@ -136,7 +136,7 @@ If you're migrating from the Hyperledger Fabric energy trading network (`/energy
        │                │
        ▼                ▼
 ┌─────────────┐  ┌─────────────────────────┐
-│   SQLite    │  │   Hedera Hashgraph      │
+│  PostgreSQL │  │   Hedera Hashgraph      │
 │  Database   │  │   Network (Cloud)       │
 │             │  │                         │
 │ - Factories │  │ - TEC Token (HTS)       │
@@ -172,14 +172,14 @@ If you're migrating from the Hyperledger Fabric energy trading network (`/energy
 **Blockchain**: Hedera Hashgraph (Testnet/Mainnet)
 **Token**: TEC (Tunisian Energy Coin) via Hedera Token Service
 **Backend**: Node.js + Express.js
-**Database**: SQLite
+**Database**: PostgreSQL
 **SDK**: @hashgraph/sdk
 **API**: RESTful HTTP/JSON
 
 **Dependencies**:
 - @hashgraph/sdk: ^2.54.2
 - express: ^4.21.1
-- sqlite3: ^5.1.7
+- pg: ^8.13.1
 - dotenv: ^16.4.5
 - body-parser: ^1.20.2
 - cors: ^2.8.5
@@ -212,10 +212,10 @@ If you're migrating from the Hyperledger Fabric energy trading network (`/energy
 ### Prerequisites
 
 1. **Node.js** v16+ and npm
-2. **Hedera Testnet Account**
+2. **PostgreSQL** v12+ database server
+3. **Hedera Testnet Account**
    - Create at: https://portal.hedera.com/
    - Get Account ID and Private Key
-3. **SQLite3** (usually included with Node.js)
 
 ### Configuration
 
@@ -226,6 +226,23 @@ MY_PRIVATE_KEY=your_private_key_here
 TREASURY_ACCOUNT_ID=0.0.XXXXXXX
 TEC_TOKEN_ID=           # Generated during setup
 PORT=3000
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=ecoguardians
+DB_USER=postgres
+DB_PASSWORD=postgres
+```
+
+### Database Setup
+
+Create the PostgreSQL database and tables:
+
+```bash
+# Create database
+createdb ecoguardians
+
+# Run schema
+psql -d ecoguardians -f hedera-energy-trading/schema.sql
 ```
 
 ## Security Considerations
@@ -260,7 +277,7 @@ curl http://localhost:3000/api/health
 
 ### Database Query
 ```bash
-sqlite3 hedera-energy-trading/energy-trading.db "SELECT * FROM factories;"
+psql -d ecoguardians -c "SELECT * FROM factories;"
 ```
 
 ## Contributing
@@ -277,7 +294,7 @@ To add features or improvements:
 
 ### Energy Trading Network (Hyperledger Fabric)
 
-The original implementation using Hyperledger Fabric is located in `/energy-trading-network/`.
+The original implementation using Hyperledger Fabric has been replaced with Hedera Hashgraph.
 
 **Key Differences**:
 - Hyperledger: Private network, Docker-based, complex setup
