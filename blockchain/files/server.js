@@ -1,4 +1,6 @@
 const { Pool } = require('pg');
+const express = require("express");
+const rateLimit = require('express-rate-limit');
 
 // PostgreSQL connection pool
 const pool = new Pool({
@@ -14,15 +16,23 @@ const pool = new Pool({
 
 })();
 
-const express = require("express")
-const app = express()
+const app = express();
 
+// Rate limiting: Allow 100 requests per 15 minutes per IP
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per windowMs
+  message: 'Too many requests from this IP, please try again later.',
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+});
 
-app.use(express.json())
+app.use(express.json());
+app.use('/send', limiter); // Apply rate limiting to /send endpoint
 
-app.post("/send",async (req, res) => {
+app.post("/send", async (req, res) => {
 	const data = req.body;
-	console.log(data)
+	console.log(data);
 
   try {
       // Insert a new record
@@ -35,9 +45,10 @@ app.post("/send",async (req, res) => {
     res.status(500).json({msq: err.message});
   }
 	
-})
+});
 
-
-app.listen(3000)
+app.listen(3000, () => {
+  console.log('Server running on port 3000');
+});
 
 
