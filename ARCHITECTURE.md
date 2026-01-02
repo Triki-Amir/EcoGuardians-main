@@ -16,8 +16,8 @@
          │                            │                             │
          ▼                            ▼                             ▼
 ┌──────────────────┐         ┌──────────────────┐         ┌──────────────────┐
-│  User Interface  │         │  SQLite Database │         │   TEC Token      │
-│  Screens/Widgets │         │  Local Storage   │         │   Testnet Acct   │
+│  User Interface  │         │PostgreSQL Database│         │   TEC Token      │
+│  Screens/Widgets │         │  Persistent Data  │         │   Testnet Acct   │
 └──────────────────┘         └──────────────────┘         └──────────────────┘
 ```
 

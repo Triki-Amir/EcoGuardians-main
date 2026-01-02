@@ -71,7 +71,7 @@ async function registerFactory(factoryData) {
   
   try {
     // Check if factory already exists
-    const existing = await dbGet(db, 'SELECT factoryId FROM factories WHERE factoryId = ?', [factoryId]);
+    const existing = await dbGet(db, 'SELECT factoryId FROM factories WHERE factoryId = $1', [factoryId]);
     if (existing) {
       throw new Error(`Factory ${factoryId} already exists`);
     }
@@ -131,13 +131,13 @@ async function registerFactory(factoryData) {
     // Insert factory into database
     await dbRun(db, `
       INSERT INTO factories (factoryId, name, passwordHash, hederaAccountId, hederaPrivateKey, energyType, energyBalance, currencyBalance, dailyConsumption, availableEnergy)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
     `, [factoryId, name, passwordHash, hederaAccountId, hederaPrivateKey, energyType, initialBalance || 0, currencyBalance || 0, dailyConsumption || 0, availableEnergy || 0]);
 
     // Record transaction history
     await dbRun(db, `
       INSERT INTO transaction_history (factoryId, transactionType, amount, hederaTransactionId)
-      VALUES (?, 'REGISTER', ?, ?)
+      VALUES ($1, 'REGISTER', $2, $3)
     `, [factoryId, initialBalance || 0, initialTecTransferTxId]);
 
     return {
@@ -170,7 +170,7 @@ async function mintEnergyTokens(factoryId, amount) {
   
   try {
     // Get factory
-    const factory = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = ?', [factoryId]);
+    const factory = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [factoryId]);
     if (!factory) {
       throw new Error(`Factory ${factoryId} not found`);
     }
@@ -236,20 +236,20 @@ async function mintEnergyTokens(factoryId, amount) {
     const newEnergyBalance = factory.energyBalance + amount;
     const newCurrencyBalance = factory.currencyBalance + amount;
     
-    await dbRun(db, 'UPDATE factories SET energyBalance = ?, currencyBalance = ?, updatedAt = strftime(\'%s\', \'now\') WHERE factoryId = ?', 
+    await dbRun(db, 'UPDATE factories SET energyBalance = $1, currencyBalance = $2, updatedAt = EXTRACT(EPOCH FROM NOW()) WHERE factoryId = $3', 
       [newEnergyBalance, newCurrencyBalance, factoryId]);
 
     // Record transaction history for mint
     await dbRun(db, `
       INSERT INTO transaction_history (factoryId, transactionType, amount, hederaTransactionId)
-      VALUES (?, 'MINT', ?, ?)
+      VALUES ($1, 'MINT', $2, $3)
     `, [factoryId, amount, hederaMintTxId]);
     
     // Record transaction history for transfer if it occurred
     if (hederaTransferTxId) {
       await dbRun(db, `
         INSERT INTO transaction_history (factoryId, transactionType, amount, hederaTransactionId)
-        VALUES (?, 'TEC_TRANSFER_IN', ?, ?)
+        VALUES ($1, 'TEC_TRANSFER_IN', $2, $3)
       `, [factoryId, amount, hederaTransferTxId]);
     }
 
@@ -278,9 +278,9 @@ async function transferEnergy(fromFactoryId, toFactoryId, amount) {
   const db = await getDatabase();
   
   try {
-    // Get both factories
-    const fromFactory = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = ?', [fromFactoryId]);
-    const toFactory = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = ?', [toFactoryId]);
+    // Get both factories (each query is independent with its own parameter array)
+    const fromFactory = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [fromFactoryId]);
+    const toFactory = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [toFactoryId]);
 
     if (!fromFactory) throw new Error(`Factory ${fromFactoryId} not found`);
     if (!toFactory) throw new Error(`Factory ${toFactoryId} not found`);
@@ -291,20 +291,20 @@ async function transferEnergy(fromFactoryId, toFactoryId, amount) {
     }
 
     // Update balances
-    await dbRun(db, 'UPDATE factories SET energyBalance = energyBalance - ?, updatedAt = strftime(\'%s\', \'now\') WHERE factoryId = ?',
+    await dbRun(db, 'UPDATE factories SET energyBalance = energyBalance - $1, updatedAt = EXTRACT(EPOCH FROM NOW()) WHERE factoryId = $2',
       [amount, fromFactoryId]);
-    await dbRun(db, 'UPDATE factories SET energyBalance = energyBalance + ?, updatedAt = strftime(\'%s\', \'now\') WHERE factoryId = ?',
+    await dbRun(db, 'UPDATE factories SET energyBalance = energyBalance + $1, updatedAt = EXTRACT(EPOCH FROM NOW()) WHERE factoryId = $2',
       [amount, toFactoryId]);
 
     // Record transaction history
     await dbRun(db, `
       INSERT INTO transaction_history (factoryId, transactionType, amount, relatedFactoryId)
-      VALUES (?, 'TRANSFER_OUT', ?, ?)
+      VALUES ($1, 'TRANSFER_OUT', $2, $3)
     `, [fromFactoryId, amount, toFactoryId]);
     
     await dbRun(db, `
       INSERT INTO transaction_history (factoryId, transactionType, amount, relatedFactoryId)
-      VALUES (?, 'TRANSFER_IN', ?, ?)
+      VALUES ($1, 'TRANSFER_IN', $2, $3)
     `, [toFactoryId, amount, fromFactoryId]);
 
     return {
@@ -328,14 +328,14 @@ async function createEnergyTrade(tradeData) {
   
   try {
     // Check if trade exists
-    const existing = await dbGet(db, 'SELECT tradeId FROM trades WHERE tradeId = ?', [tradeId]);
+    const existing = await dbGet(db, 'SELECT tradeId FROM trades WHERE tradeId = $1', [tradeId]);
     if (existing) {
       throw new Error(`Trade ${tradeId} already exists`);
     }
 
     // Validate seller and buyer exist
-    const seller = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = ?', [sellerId]);
-    const buyer = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = ?', [buyerId]);
+    const seller = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [sellerId]);
+    const buyer = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [buyerId]);
 
     if (!seller) throw new Error(`Seller factory ${sellerId} not found`);
     if (!buyer) throw new Error(`Buyer factory ${buyerId} not found`);
@@ -350,7 +350,7 @@ async function createEnergyTrade(tradeData) {
     // Insert trade
     await dbRun(db, `
       INSERT INTO trades (tradeId, sellerId, buyerId, amount, pricePerUnit, totalPrice, status)
-      VALUES (?, ?, ?, ?, ?, ?, 'pending')
+      VALUES ($1, $2, $3, $4, $5, $6, 'pending')
     `, [tradeId, sellerId, buyerId, amount, pricePerUnit, totalPrice]);
 
     return {
@@ -375,7 +375,7 @@ async function executeTrade(tradeId) {
   
   try {
     // Get trade
-    const trade = await dbGet(db, 'SELECT * FROM trades WHERE tradeId = ?', [tradeId]);
+    const trade = await dbGet(db, 'SELECT * FROM trades WHERE tradeId = $1', [tradeId]);
     if (!trade) {
       throw new Error(`Trade ${tradeId} not found`);
     }
@@ -385,8 +385,8 @@ async function executeTrade(tradeId) {
     }
 
     // Get buyer and seller
-    const buyer = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = ?', [trade.buyerId]);
-    const seller = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = ?', [trade.sellerId]);
+    const buyer = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [trade.buyerId]);
+    const seller = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [trade.sellerId]);
 
     // Validate Hedera accounts exist
     if (TEC_TOKEN_ID) {
@@ -418,30 +418,30 @@ async function executeTrade(tradeId) {
 
     // Update local balances after successful Hedera transfer
     // Transfer energy
-    await dbRun(db, 'UPDATE factories SET energyBalance = energyBalance - ? WHERE factoryId = ?',
+    await dbRun(db, 'UPDATE factories SET energyBalance = energyBalance - $1 WHERE factoryId = $2',
       [trade.amount, trade.sellerId]);
-    await dbRun(db, 'UPDATE factories SET energyBalance = energyBalance + ? WHERE factoryId = ?',
+    await dbRun(db, 'UPDATE factories SET energyBalance = energyBalance + $1 WHERE factoryId = $2',
       [trade.amount, trade.buyerId]);
 
     // Transfer TEC (currency) - update local tracking
-    await dbRun(db, 'UPDATE factories SET currencyBalance = currencyBalance - ? WHERE factoryId = ?',
+    await dbRun(db, 'UPDATE factories SET currencyBalance = currencyBalance - $1 WHERE factoryId = $2',
       [trade.totalPrice, trade.buyerId]);
-    await dbRun(db, 'UPDATE factories SET currencyBalance = currencyBalance + ? WHERE factoryId = ?',
+    await dbRun(db, 'UPDATE factories SET currencyBalance = currencyBalance + $1 WHERE factoryId = $2',
       [trade.totalPrice, trade.sellerId]);
 
     // Update trade status
-    await dbRun(db, 'UPDATE trades SET status = ?, hederaTransactionId = ? WHERE tradeId = ?',
+    await dbRun(db, 'UPDATE trades SET status = $1, hederaTransactionId = $2 WHERE tradeId = $3',
       ['completed', hederaTxId, tradeId]);
 
     // Record transaction history
     await dbRun(db, `
       INSERT INTO transaction_history (factoryId, transactionType, amount, relatedFactoryId, hederaTransactionId)
-      VALUES (?, 'TRADE_SELL', ?, ?, ?)
+      VALUES ($1, 'TRADE_SELL', $2, $3, $4)
     `, [trade.sellerId, trade.amount, trade.buyerId, hederaTxId]);
     
     await dbRun(db, `
       INSERT INTO transaction_history (factoryId, transactionType, amount, relatedFactoryId, hederaTransactionId)
-      VALUES (?, 'TRADE_BUY', ?, ?, ?)
+      VALUES ($1, 'TRADE_BUY', $2, $3, $4)
     `, [trade.buyerId, trade.amount, trade.sellerId, hederaTxId]);
 
     return {
@@ -515,7 +515,7 @@ async function getFactory(factoryId) {
   const db = await getDatabase();
   
   try {
-    const factory = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = ?', [factoryId]);
+    const factory = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [factoryId]);
     if (!factory) {
       throw new Error(`Factory ${factoryId} not found`);
     }
@@ -545,7 +545,7 @@ async function getTrade(tradeId) {
   const db = await getDatabase();
   
   try {
-    const trade = await dbGet(db, 'SELECT * FROM trades WHERE tradeId = ?', [tradeId]);
+    const trade = await dbGet(db, 'SELECT * FROM trades WHERE tradeId = $1', [tradeId]);
     if (!trade) {
       throw new Error(`Trade ${tradeId} not found`);
     }
@@ -563,7 +563,7 @@ async function getFactoryHistory(factoryId) {
   
   try {
     return await dbAll(db, 
-      'SELECT * FROM transaction_history WHERE factoryId = ? ORDER BY timestamp DESC',
+      'SELECT * FROM transaction_history WHERE factoryId = $1 ORDER BY timestamp DESC',
       [factoryId]
     );
   } finally {
@@ -582,12 +582,12 @@ async function updateAvailableEnergy(factoryId, newAvailableEnergy) {
   const db = await getDatabase();
   
   try {
-    const factory = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = ?', [factoryId]);
+    const factory = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [factoryId]);
     if (!factory) {
       throw new Error(`Factory ${factoryId} not found`);
     }
 
-    await dbRun(db, 'UPDATE factories SET availableEnergy = ?, updatedAt = strftime(\'%s\', \'now\') WHERE factoryId = ?',
+    await dbRun(db, 'UPDATE factories SET availableEnergy = $1, updatedAt = EXTRACT(EPOCH FROM NOW()) WHERE factoryId = $2',
       [newAvailableEnergy, factoryId]);
 
     return { factoryId, availableEnergy: newAvailableEnergy };
@@ -607,12 +607,12 @@ async function updateDailyConsumption(factoryId, newDailyConsumption) {
   const db = await getDatabase();
   
   try {
-    const factory = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = ?', [factoryId]);
+    const factory = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [factoryId]);
     if (!factory) {
       throw new Error(`Factory ${factoryId} not found`);
     }
 
-    await dbRun(db, 'UPDATE factories SET dailyConsumption = ?, updatedAt = strftime(\'%s\', \'now\') WHERE factoryId = ?',
+    await dbRun(db, 'UPDATE factories SET dailyConsumption = $1, updatedAt = EXTRACT(EPOCH FROM NOW()) WHERE factoryId = $2',
       [newDailyConsumption, factoryId]);
 
     return { factoryId, dailyConsumption: newDailyConsumption };
@@ -628,7 +628,7 @@ async function getEnergyStatus(factoryId) {
   const db = await getDatabase();
   
   try {
-    const factory = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = ?', [factoryId]);
+    const factory = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [factoryId]);
     if (!factory) {
       throw new Error(`Factory ${factoryId} not found`);
     }
@@ -664,7 +664,7 @@ async function loginFactory(factoryId, password) {
   const db = await getDatabase();
   
   try {
-    const factory = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = ?', [factoryId]);
+    const factory = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [factoryId]);
     if (!factory) {
       throw new Error('Invalid factory ID or password');
     }
