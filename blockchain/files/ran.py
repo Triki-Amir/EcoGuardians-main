@@ -1,17 +1,25 @@
-import sqlite3
+import psycopg2
 import time
 import random
+import os
 
-# Path to the SQLite file
-db_path = "energy.sqlite"
+# PostgreSQL connection parameters from environment variables
+DB_CONFIG = {
+    'host': os.getenv('DB_HOST', 'localhost'),
+    'port': os.getenv('DB_PORT', '5432'),
+    'database': os.getenv('DB_NAME', 'ecoguardians'),
+    'user': os.getenv('DB_USER', 'postgres'),
+    'password': os.getenv('DB_PASSWORD', 'postgres')
+}
 
-def add_record(db_path):
+def add_record():
     """
     Add a record to the energy table with a random mwh value and current timestamp.
     """
+    conn = None
     try:
         # Connect to the database
-        conn = sqlite3.connect(db_path)
+        conn = psycopg2.connect(**DB_CONFIG)
         cursor = conn.cursor()
         
         # Generate random mwh and current timestamp
@@ -19,12 +27,12 @@ def add_record(db_path):
         current_time = int(time.time())  # Current Unix timestamp in seconds
         
         # Insert a new record
-        cursor.execute("INSERT INTO energy (mwh, time) VALUES (?, ?)", (mwh, current_time))
+        cursor.execute("INSERT INTO energy (mwh, time) VALUES (%s, %s)", (mwh, current_time))
         
         # Commit and close
         conn.commit()
         print(f"Added record: mwh={mwh}, time={current_time}")
-    except sqlite3.Error as e:
+    except psycopg2.Error as e:
         print(f"Database error: {e}")
     finally:
         if conn:
@@ -34,7 +42,7 @@ if __name__ == "__main__":
     print("Starting to add records every 10 seconds. Press Ctrl+C to stop.")
     try:
         while True:
-            add_record(db_path)
+            add_record()
             time.sleep(10)  # Wait for 10 seconds
     except KeyboardInterrupt:
         print("\nStopped adding records.")

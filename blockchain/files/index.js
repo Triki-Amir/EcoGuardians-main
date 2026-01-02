@@ -16,8 +16,7 @@ const {
   let supplyKey;
   let treasuryId;
   const client = Client.forTestnet();
-  const sqlite = require('sqlite');
-  const sqlite3 = require('sqlite3');
+  const { Pool } = require('pg');
   
   async function environmentSetup() {
 	const myAccountId = process.env.MY_ACCOUNT_ID;
@@ -74,7 +73,13 @@ const {
   async function solve() {
 	if (!tokenId || !supplyKey) return;
   
-	const db = await sqlite.open({ filename: 'energy.sqlite', driver: sqlite3.Database });
+	const pool = new Pool({
+	  host: process.env.DB_HOST || 'localhost',
+	  port: process.env.DB_PORT || 5432,
+	  database: process.env.DB_NAME || 'ecoguardians',
+	  user: process.env.DB_USER || 'postgres',
+	  password: process.env.DB_PASSWORD || 'postgres'
+	});
   
 	const now = Math.floor(Date.now() / 1000); // Current Unix timestamp in seconds
 	const oneMinuteAgo = now - 60; // Timestamp for one minute ago
@@ -90,7 +95,8 @@ const {
 	];
   
 	// Fetch energy data from the database
-	const rows = await db.all('SELECT * FROM energy WHERE time >= ?', [oneMinuteAgo]);
+	const result = await pool.query('SELECT * FROM energy WHERE time >= $1', [oneMinuteAgo]);
+	const rows = result.rows;
   
 	const amount = Number(rows.reduce((prev, row) => prev + row["mwh"], 0));
   
@@ -110,7 +116,7 @@ const {
 	console.log("Check this link for the token info: https://explorer.arkhia.io/testnet/token/" + tokenId);
   
 	// Close the database connection
-	await db.close();
+	await pool.end();
   }
   
   environmentSetup();

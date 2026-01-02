@@ -39,21 +39,14 @@ Before setting up the project, you must create a Hedera Testnet account:
 ### System Requirements
 - Node.js (v16 or higher)
 - npm (Node Package Manager)
-- SQLite3
-- Hedera Hashgraph Testnet Account
-
-### System Requirements
-- Node.js (v16 or higher)
-- npm (Node Package Manager)
-- SQLite3
+- PostgreSQL (v12 or higher)
 - Hedera Hashgraph Testnet Account
 
 ### Required Dependencies
 - @hashgraph/sdk
 - dotenv
 - express
-- sqlite
-- sqlite3
+- pg (PostgreSQL driver)
 
 ## Configuration
 
@@ -63,18 +56,34 @@ Before setting up the project, you must create a Hedera Testnet account:
    ```
    MY_ACCOUNT_ID=your_hedera_account_id
    MY_PRIVATE_KEY=your_hedera_private_key
+   DB_HOST=localhost
+   DB_PORT=5432
+   DB_NAME=ecoguardians
+   DB_USER=postgres
+   DB_PASSWORD=postgres
    ```
 
-2. Replace `your_hedera_account_id` and `your_hedera_private_key` with your actual Hedera Testnet credentials.
+2. Replace the Hedera credentials with your actual Testnet credentials.
 
 ### 2. Database Preparation
 
-Before running the application, ensure your SQLite database (`energy.sqlite`) is set up with the correct table structure:
+Before running the application, ensure your PostgreSQL database is set up:
 
+1. Create the database:
+   ```bash
+   createdb ecoguardians
+   ```
+
+2. Run the schema file to create tables:
+   ```bash
+   psql -d ecoguardians -f schema.sql
+   ```
+
+The schema creates the following table:
 ```sql
 CREATE TABLE energy (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    mwh REAL NOT NULL,
+    id SERIAL PRIMARY KEY,
+    mwh INTEGER NOT NULL,
     time INTEGER NOT NULL
 );
 ```
@@ -143,5 +152,6 @@ node index.js
 ## Troubleshooting
 
 - Ensure Hedera Testnet connectivity
-- Verify SQLite database permissions
+- Verify PostgreSQL database is running and accessible
+- Check PostgreSQL connection parameters in `.env`
 - Check environment variable configuration

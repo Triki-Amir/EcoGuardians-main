@@ -1,8 +1,13 @@
-const sqlite3 = require('sqlite3').verbose();
-const { promisify } = require('util');
+const { Pool } = require('pg');
 
-// Path to the SQLite file
-const dbPath = 'energy.sqlite';
+// PostgreSQL connection pool
+const pool = new Pool({
+  host: process.env.DB_HOST || 'localhost',
+  port: process.env.DB_PORT || 5432,
+  database: process.env.DB_NAME || 'ecoguardians',
+  user: process.env.DB_USER || 'postgres',
+  password: process.env.DB_PASSWORD || 'postgres'
+});
 
 // Main function to add records every 10 seconds
 (async function main() {
@@ -18,18 +23,10 @@ app.use(express.json())
 app.post("/send",async (req, res) => {
 	const data = req.body;
 	console.log(data)
-  const db = new sqlite3.Database(dbPath, (err) => {
-    if (err) {
-      console.error('Error opening database:', err.message);
-      process.exit(1);
-    }
-    console.log('Connected to the database.');
-  });
 
   try {
       // Insert a new record
-      const run = promisify(db.run.bind(db));
-      await run('INSERT INTO energy (mwh, time) VALUES (?, ?)', [data.mwh, data.currentTime]);
+      await pool.query('INSERT INTO energy (mwh, time) VALUES ($1, $2)', [data.mwh, data.currentTime]);
 
       console.log(`Added record: mwh=${data.mwh}, time=${data.currentTime}`);
       res.json({msq: "sent successfully"});
@@ -37,19 +34,6 @@ app.post("/send",async (req, res) => {
     console.error('Error:', err.message);
     res.status(500).json({msq: err.message});
   }
-
-  // Graceful shutdown on Ctrl+C
-  process.on('SIGINT', () => {
-    console.log('\nStopping the script...');
-    db.close((err) => {
-      if (err) {
-        console.error('Error closing database:', err.message);
-      } else {
-        console.log('Database connection closed.');
-      }
-      process.exit(0);
-    });
-  });
 	
 })
 
