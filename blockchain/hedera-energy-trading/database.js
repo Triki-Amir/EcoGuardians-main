@@ -115,6 +115,9 @@ async function dbAll(db, query, params = []) {
 
 /**
  * Close database connection (for pool, this is not typically needed)
+ * Note: With connection pooling, individual connections are managed automatically.
+ * Call pool.end() only when shutting down the entire application.
+ * This function is kept for API compatibility with the previous SQLite implementation.
  */
 async function closeDatabase(db) {
   // With connection pool, we typically don't close it

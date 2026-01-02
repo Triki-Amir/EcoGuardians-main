@@ -32,6 +32,11 @@ def add_record():
         # Commit and close
         conn.commit()
         print(f"Added record: mwh={mwh}, time={current_time}")
+    except psycopg2.OperationalError as e:
+        print(f"Database connection error: {e}")
+        print("Please check if PostgreSQL is running and connection parameters are correct.")
+    except psycopg2.IntegrityError as e:
+        print(f"Data integrity error: {e}")
     except psycopg2.Error as e:
         print(f"Database error: {e}")
     finally:

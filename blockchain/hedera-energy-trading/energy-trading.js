@@ -278,7 +278,7 @@ async function transferEnergy(fromFactoryId, toFactoryId, amount) {
   const db = await getDatabase();
   
   try {
-    // Get both factories
+    // Get both factories (each query is independent with its own parameter array)
     const fromFactory = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [fromFactoryId]);
     const toFactory = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [toFactoryId]);
 
