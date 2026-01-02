@@ -16,7 +16,7 @@ This system transforms the Hyperledger Fabric energy trading network to use **He
 - **Token Management**: Mint energy tokens when surplus is generated
 - **Transaction History**: Complete audit trail on Hedera network (visible on HashScan explorer)
 - **REST API**: Easy integration with factory management systems
-- **SQLite Database**: Local storage for factory and trade data
+- **PostgreSQL Database**: Production-grade database for factory and trade data
 
 ## 🏗️ Architecture
 
@@ -34,11 +34,11 @@ This system transforms the Hyperledger Fabric energy trading network to use **He
                      │
         ┌────────────┴────────────┐
         │                         │
-   ┌────▼────┐            ┌──────▼──────┐
-   │ SQLite  │            │   Hedera    │
-   │Database │            │  Hashgraph  │
-   │         │            │  Testnet    │
-   └─────────┘            └──────┬──────┘
+   ┌────▼────────┐        ┌──────▼──────┐
+   │ PostgreSQL  │        │   Hedera    │
+   │  Database   │        │  Hashgraph  │
+   │             │        │  Testnet    │
+   └─────────────┘        └──────┬──────┘
                                  │
                           ┌──────▼──────┐
                           │ TEC Token   │
@@ -53,13 +53,14 @@ Before you begin, ensure you have:
 1. **Node.js** (v16 or higher) and npm
    - Download from: https://nodejs.org/
 
-2. **Hedera Testnet Account**
+2. **PostgreSQL** (v12 or higher)
+   - See [PostgreSQL Setup Guide](#-postgresql-setup) below for detailed installation instructions
+
+3. **Hedera Testnet Account**
    - Visit: https://portal.hedera.com/register
    - Create a free testnet account
    - Note your Account ID (format: 0.0.XXXXXXX)
    - Note your Private Key (starts with 0x or 302e...)
-
-3. **SQLite3** (usually comes with Node.js)
 
 ## 🚀 Quick Start
 
@@ -78,17 +79,72 @@ Create a `.env` file in the project root:
 cp .env.example .env
 ```
 
-Edit `.env` and add your Hedera credentials:
+Edit `.env` and add your Hedera credentials and PostgreSQL configuration:
 
 ```env
+# Hedera Configuration
 MY_ACCOUNT_ID=0.0.XXXXXXX
 MY_PRIVATE_KEY=your_private_key_here
 TREASURY_ACCOUNT_ID=0.0.XXXXXXX
 TEC_TOKEN_ID=
 PORT=3000
+
+# PostgreSQL Configuration
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=ecoguardians
+DB_USER=postgres
+DB_PASSWORD=postgres
 ```
 
-### Step 3: Create TEC Token
+### Step 3: Setup PostgreSQL Database
+
+Before running the server, you need to install and configure PostgreSQL:
+
+#### Install PostgreSQL
+
+**Ubuntu/Debian:**
+```bash
+sudo apt update
+sudo apt install postgresql postgresql-contrib
+sudo systemctl start postgresql
+sudo systemctl enable postgresql
+```
+
+**macOS (using Homebrew):**
+```bash
+brew install postgresql@15
+brew services start postgresql@15
+```
+
+**Windows:**
+Download and install from: https://www.postgresql.org/download/windows/
+
+#### Create Database
+
+```bash
+# Login to PostgreSQL (Ubuntu/Debian/macOS)
+sudo -u postgres psql
+
+# OR on Windows, open SQL Shell (psql) from Start Menu
+# Then run these commands:
+
+# Create database
+CREATE DATABASE ecoguardians;
+
+# (Optional) Create a dedicated user
+CREATE USER ecouser WITH PASSWORD 'yourpassword';
+GRANT ALL PRIVILEGES ON DATABASE ecoguardians TO ecouser;
+
+# Exit psql
+\q
+```
+
+**Note**: If you create a custom user, update the `DB_USER` and `DB_PASSWORD` in your `.env` file accordingly.
+
+The database tables will be created automatically when you start the server for the first time.
+
+### Step 4: Create TEC Token
 
 Run the token initialization script:
 
@@ -107,7 +163,7 @@ This will:
 TEC_TOKEN_ID=0.0.YYYYYYY
 ```
 
-### Step 4: Start the API Server
+### Step 5: Start the API Server
 
 ```bash
 npm start
@@ -380,8 +436,10 @@ This system translates the Hyperledger Fabric energy trading network to Hedera:
    - No need for Docker containers or peer nodes
    - Direct connection to Hedera public network
 
-4. **CouchDB → SQLite**
-   - Lightweight local database for factory records
+4. **CouchDB → PostgreSQL**
+   - Production-grade database for factory records
+   - Better performance and scalability
+   - ACID compliance with robust transaction handling
    - Hedera network stores immutable transaction proofs
 
 5. **Gateway/Wallet → Hedera Client**
@@ -443,12 +501,12 @@ TEC (Tunisian Energy Coin)
 ### 3. Data Storage
 
 ```
-Local SQLite Database:
+PostgreSQL Database:
 ├─ factories: Factory profiles and balances
 ├─ trades: Trade records and status
 └─ transaction_history: Complete audit trail
 
-Hedera Network (optional):
+Hedera Network:
 ├─ TEC token transactions
 ├─ Topic messages for logging
 └─ Consensus timestamps
@@ -526,8 +584,58 @@ curl http://localhost:3000/api/factories
 
 ## 🐛 Troubleshooting
 
+### Issue: "connect ECONNREFUSED 127.0.0.1:5432" or "Failed to initialize database"
+This error occurs when the server cannot connect to PostgreSQL.
+
+**Solutions**:
+
+1. **Verify PostgreSQL is running**:
+   ```bash
+   # Ubuntu/Debian
+   sudo systemctl status postgresql
+   # If not running, start it:
+   sudo systemctl start postgresql
+   
+   # macOS
+   brew services list | grep postgresql
+   # If not running, start it:
+   brew services start postgresql@15
+   
+   # Windows
+   # Check Services app for "postgresql" service
+   ```
+
+2. **Check PostgreSQL is listening on port 5432**:
+   ```bash
+   netstat -an | grep 5432
+   # OR
+   sudo lsof -i :5432
+   ```
+
+3. **Verify database exists**:
+   ```bash
+   sudo -u postgres psql -l | grep ecoguardians
+   # If not listed, create it:
+   sudo -u postgres psql -c "CREATE DATABASE ecoguardians;"
+   ```
+
+4. **Check credentials in `.env` file**:
+   - Ensure `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, and `DB_PASSWORD` are correct
+   - Default PostgreSQL user is `postgres` with no password or password `postgres`
+
+5. **Test PostgreSQL connection manually**:
+   ```bash
+   psql -h localhost -p 5432 -U postgres -d ecoguardians
+   # If this fails, check your PostgreSQL authentication settings
+   ```
+
+6. **Check PostgreSQL authentication (pg_hba.conf)**:
+   - On Ubuntu: `/etc/postgresql/*/main/pg_hba.conf`
+   - On macOS: `/usr/local/var/postgresql@15/pg_hba.conf`
+   - Ensure local connections are allowed (use `trust` or `md5` for authentication)
+
 ### Issue: "Environment variables must be present"
-**Solution**: Create `.env` file with your Hedera account credentials
+**Solution**: Create `.env` file with your Hedera account credentials and PostgreSQL configuration
 
 ### Issue: "Port 3000 already in use"
 **Solution**: 
