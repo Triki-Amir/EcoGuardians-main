@@ -2,6 +2,54 @@
 
 ## 🚀 Getting Started
 
+### Prerequisites
+
+Before starting, ensure you have:
+- **Node.js** (v16 or higher) and npm
+- **PostgreSQL** (v12 or higher) - See PostgreSQL Setup below
+- **Hedera Testnet Account** - Get one from https://portal.hedera.com/register
+- **Flutter SDK** (if using the mobile app)
+
+### PostgreSQL Setup
+
+#### Install PostgreSQL
+
+**Ubuntu/Debian:**
+```bash
+sudo apt update
+sudo apt install postgresql postgresql-contrib
+sudo systemctl start postgresql
+sudo systemctl enable postgresql
+```
+
+**macOS (using Homebrew):**
+```bash
+brew install postgresql@15
+brew services start postgresql@15
+```
+
+**Windows:**
+Download and install from: https://www.postgresql.org/download/windows/
+
+#### Create Database
+
+```bash
+# Login to PostgreSQL (Ubuntu/Debian/macOS)
+sudo -u postgres psql
+
+# OR on Windows, open SQL Shell (psql) from Start Menu
+# Then run:
+
+CREATE DATABASE ecoguardians;
+
+# (Optional) Create a dedicated user
+CREATE USER ecouser WITH PASSWORD 'yourpassword';
+GRANT ALL PRIVILEGES ON DATABASE ecoguardians TO ecouser;
+
+# Exit
+\q
+```
+
 ### Backend Setup
 
 1. **Install Dependencies**
@@ -15,10 +63,19 @@ npm install
 # Copy the example environment file
 cp .env.example .env
 
-# Edit .env and add your Hedera credentials:
+# Edit .env and add your credentials:
+# 
+# Hedera Configuration:
 # MY_ACCOUNT_ID=0.0.YOUR_ACCOUNT_ID
 # MY_PRIVATE_KEY=your_private_key
 # TEC_TOKEN_ID=0.0.YOUR_TOKEN_ID
+#
+# PostgreSQL Configuration:
+# DB_HOST=localhost
+# DB_PORT=5432
+# DB_NAME=ecoguardians
+# DB_USER=postgres
+# DB_PASSWORD=postgres
 ```
 
 3. **Start the Server**
@@ -163,6 +220,33 @@ Content-Type: application/json
 
 ## 🛠️ Troubleshooting
 
+### "connect ECONNREFUSED 127.0.0.1:5432" or PostgreSQL Connection Error
+**Solutions**:
+1. Verify PostgreSQL is running:
+   ```bash
+   # Ubuntu/Debian
+   sudo systemctl status postgresql
+   sudo systemctl start postgresql
+   
+   # macOS
+   brew services list | grep postgresql
+   brew services start postgresql@15
+   ```
+
+2. Verify database exists:
+   ```bash
+   sudo -u postgres psql -l | grep ecoguardians
+   # If not found, create it:
+   sudo -u postgres psql -c "CREATE DATABASE ecoguardians;"
+   ```
+
+3. Check credentials in `.env` file match your PostgreSQL setup
+
+4. Test PostgreSQL connection:
+   ```bash
+   psql -h localhost -p 5432 -U postgres -d ecoguardians
+   ```
+
 ### "Cannot find module 'bcrypt'"
 ```bash
 cd blockchain/hedera-energy-trading
@@ -179,7 +263,10 @@ Then update the Flutter app's API base URL.
 ### "Factory already exists"
 This means a factory with that ID is already registered. Either:
 - Use a different Factory ID
-- Delete the existing database (`energy-trading.db`) to start fresh
+- Delete data from PostgreSQL to start fresh:
+  ```bash
+  sudo -u postgres psql -d ecoguardians -c "TRUNCATE factories, trades, transaction_history CASCADE;"
+  ```
 
 ### "Invalid factory ID or password"
 - Double-check your Factory ID (case-sensitive)
@@ -213,12 +300,16 @@ This means the Hedera integration is not configured or the factory was created b
 1. **Use strong passwords** (at least 8-10 characters with mixed case, numbers, symbols)
 2. **Never share your Factory ID and password**
 3. **Keep your Hedera private keys secure** (stored in `.env`, never commit to git)
-4. **Backup your database** regularly (`energy-trading.db`)
+4. **Backup your database** regularly:
+   ```bash
+   pg_dump -U postgres ecoguardians > backup.sql
+   ```
 5. **Use HTTPS in production** (not HTTP)
 
 ## 📞 Need Help?
 
-- Check the main documentation: `AUTHENTICATION_UPDATE.md`
+- Check the detailed documentation: `blockchain/hedera-energy-trading/README.md`
+- Review PostgreSQL setup: `POSTGRESQL_MIGRATION.md`
 - Review the API endpoints in `server.js`
 - Ensure dependencies are installed: `npm list` and `flutter pub deps`
 - Check server logs for detailed error messages

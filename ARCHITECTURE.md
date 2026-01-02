@@ -208,7 +208,7 @@ Login Screen
 ```
 ┌──────────┐     ┌──────────┐     ┌──────────┐     ┌──────────┐
 │ Flutter  │────▶│  Server  │────▶│ Database │     │  Hedera  │
-│   App    │     │  (API)   │     │ (SQLite) │     │ Network  │
+│   App    │     │  (API)   │     │PostgreSQL│     │ Network  │
 └──────────┘     └──────────┘     └──────────┘     └──────────┘
      │                │                 │                 │
      │ 1. Register    │                 │                 │
@@ -232,7 +232,7 @@ Login Screen
 ```
 ┌──────────┐     ┌──────────┐     ┌──────────┐     ┌──────────┐
 │ Factory A│────▶│  Server  │────▶│ Database │     │  Hedera  │
-│  (Seller)│     │  (API)   │     │ (SQLite) │     │ Network  │
+│  (Seller)│     │  (API)   │     │PostgreSQL│     │ Network  │
 └──────────┘     └──────────┘     └──────────┘     └──────────┘
      │                │                 │                 │
 ┌──────────┐          │                 │                 │
