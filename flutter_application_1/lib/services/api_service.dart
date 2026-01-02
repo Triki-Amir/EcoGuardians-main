@@ -45,10 +45,11 @@ class ApiService {
 
   /// Register a new factory
   /// POST /api/factory/register
-  /// Body: { factoryId, name, initialBalance, energyType, currencyBalance, dailyConsumption, availableEnergy }
+  /// Body: { factoryId, name, password, initialBalance, energyType, currencyBalance, dailyConsumption, availableEnergy }
   static Future<Map<String, dynamic>> registerFactory({
     required String factoryId,
     required String name,
+    required String password,
     required double initialBalance,
     required String energyType,
     double currencyBalance = 0,
@@ -61,11 +62,30 @@ class ApiService {
       body: jsonEncode({
         'factoryId': factoryId,
         'name': name,
+        'password': password,
         'initialBalance': initialBalance,
         'energyType': energyType,
         'currencyBalance': currencyBalance,
         'dailyConsumption': dailyConsumption,
         'availableEnergy': availableEnergy ?? initialBalance,
+      }),
+    );
+    return _handleResponse(response);
+  }
+
+  /// Login factory
+  /// POST /api/factory/login
+  /// Body: { factoryId, password }
+  static Future<Map<String, dynamic>> loginFactory({
+    required String factoryId,
+    required String password,
+  }) async {
+    final response = await http.post(
+      Uri.parse('${ApiConfig.baseUrl}/api/factory/login'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'factoryId': factoryId,
+        'password': password,
       }),
     );
     return _handleResponse(response);

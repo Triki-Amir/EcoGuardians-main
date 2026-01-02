@@ -31,6 +31,7 @@ function initDatabase() {
         CREATE TABLE IF NOT EXISTS factories (
           factoryId TEXT PRIMARY KEY,
           name TEXT NOT NULL,
+          passwordHash TEXT NOT NULL,
           hederaAccountId TEXT,
           hederaPrivateKey TEXT,
           energyType TEXT NOT NULL,

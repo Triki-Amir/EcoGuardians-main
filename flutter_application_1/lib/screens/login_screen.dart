@@ -14,35 +14,82 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLogin = true;
   bool _isLoading = false;
   final _factoryIdController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
   final _factoryNameController = TextEditingController();
   final _initialBalanceController = TextEditingController(text: '1000');
+  final _currencyBalanceController = TextEditingController(text: '500');
   String _selectedEnergyType = 'Solar';
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
 
   @override
   void dispose() {
     _factoryIdController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
     _factoryNameController.dispose();
     _initialBalanceController.dispose();
+    _currencyBalanceController.dispose();
     super.dispose();
   }
 
   void _handleSubmit() async {
     if (_isLogin) {
-      // For login, just navigate with factoryId
+      // For login, call the API with factoryId and password
       final factoryId = _factoryIdController.text.trim();
-      if (factoryId.isEmpty) {
-        _showError('Please enter your Factory ID');
+      final password = _passwordController.text;
+      
+      if (factoryId.isEmpty || password.isEmpty) {
+        _showError('Please enter your Factory ID and password');
         return;
       }
-      widget.onLogin(factoryId, factoryId);
+
+      setState(() => _isLoading = true);
+
+      try {
+        final result = await ApiService.loginFactory(
+          factoryId: factoryId,
+          password: password,
+        );
+
+        if (!mounted) return;
+        
+        // Extract factory name from response
+        final factoryData = result['data'] as Map<String, dynamic>;
+        final factoryName = factoryData['name'] as String? ?? factoryId;
+        
+        widget.onLogin(factoryId, factoryName);
+      } on ApiException catch (e) {
+        _showError(e.message);
+      } catch (e) {
+        _showError('Connection error: ${e.toString()}');
+      } finally {
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
+      }
     } else {
       // For registration, call the API
       final factoryId = _factoryIdController.text.trim();
+      final password = _passwordController.text;
+      final confirmPassword = _confirmPasswordController.text;
       final factoryName = _factoryNameController.text.trim();
       final initialBalance = double.tryParse(_initialBalanceController.text) ?? 0;
+      final currencyBalance = double.tryParse(_currencyBalanceController.text) ?? 0;
 
-      if (factoryId.isEmpty || factoryName.isEmpty) {
+      if (factoryId.isEmpty || factoryName.isEmpty || password.isEmpty) {
         _showError('Please fill in all required fields');
+        return;
+      }
+
+      if (password.length < 6) {
+        _showError('Password must be at least 6 characters long');
+        return;
+      }
+
+      if (password != confirmPassword) {
+        _showError('Passwords do not match');
         return;
       }
 
@@ -52,8 +99,10 @@ class _LoginScreenState extends State<LoginScreen> {
         await ApiService.registerFactory(
           factoryId: factoryId,
           name: factoryName,
+          password: password,
           initialBalance: initialBalance,
           energyType: _selectedEnergyType,
+          currencyBalance: currencyBalance,
         );
 
         if (!mounted) return;
@@ -195,6 +244,35 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const SizedBox(height: 16),
                       
+                      if (_isLogin) ...[
+                        TextField(
+                          controller: _passwordController,
+                          obscureText: _obscurePassword,
+                          style: const TextStyle(color: Colors.white),
+                          decoration: InputDecoration(
+                            labelText: 'Password',
+                            labelStyle: const TextStyle(color: Colors.grey),
+                            filled: true,
+                            fillColor: Colors.grey.shade800,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide.none,
+                            ),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                                color: Colors.grey,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _obscurePassword = !_obscurePassword;
+                                });
+                              },
+                            ),
+                          ),
+                        ),
+                      ],
+                      
                       if (!_isLogin) ...[
                         TextField(
                           controller: _factoryNameController,
@@ -220,6 +298,24 @@ class _LoginScreenState extends State<LoginScreen> {
                           decoration: InputDecoration(
                             labelText: 'Initial Energy Balance (kWh)',
                             labelStyle: const TextStyle(color: Colors.grey),
+                            filled: true,
+                            fillColor: Colors.grey.shade800,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: _currencyBalanceController,
+                          style: const TextStyle(color: Colors.white),
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            labelText: 'Initial TEC Balance',
+                            labelStyle: const TextStyle(color: Colors.grey),
+                            hintText: 'Starting currency balance',
+                            hintStyle: TextStyle(color: Colors.grey.shade600),
                             filled: true,
                             fillColor: Colors.grey.shade800,
                             border: OutlineInputBorder(
@@ -255,6 +351,62 @@ class _LoginScreenState extends State<LoginScreen> {
                               _selectedEnergyType = newValue!;
                             });
                           },
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: _passwordController,
+                          obscureText: _obscurePassword,
+                          style: const TextStyle(color: Colors.white),
+                          decoration: InputDecoration(
+                            labelText: 'Password',
+                            labelStyle: const TextStyle(color: Colors.grey),
+                            hintText: 'At least 6 characters',
+                            hintStyle: TextStyle(color: Colors.grey.shade600),
+                            filled: true,
+                            fillColor: Colors.grey.shade800,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide.none,
+                            ),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                                color: Colors.grey,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _obscurePassword = !_obscurePassword;
+                                });
+                              },
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: _confirmPasswordController,
+                          obscureText: _obscureConfirmPassword,
+                          style: const TextStyle(color: Colors.white),
+                          decoration: InputDecoration(
+                            labelText: 'Confirm Password',
+                            labelStyle: const TextStyle(color: Colors.grey),
+                            filled: true,
+                            fillColor: Colors.grey.shade800,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide.none,
+                            ),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _obscureConfirmPassword ? Icons.visibility_off : Icons.visibility,
+                                color: Colors.grey,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _obscureConfirmPassword = !_obscureConfirmPassword;
+                                });
+                              },
+                            ),
+                          ),
                         ),
                         const SizedBox(height: 16),
                       ],

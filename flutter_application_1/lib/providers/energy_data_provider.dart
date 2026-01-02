@@ -182,123 +182,14 @@ class EnergyDataProvider extends ChangeNotifier {
       ));
     }
 
-    // Initialize factories
-    _factories = [
-      EnergyFactory(
-        id: 'f1',
-        name: 'Factory 2',
-        location: Location(lat: 40.7128, lng: -74.0060),
-        distance: 2.3,
-        status: FactoryStatus.surplus,
-        capacity: Capacity(solar: 500, wind: 300, battery: 200),
-        currentGeneration: 320,
-        currentConsumption: 250,
-        balance: 70,
-      ),
-      EnergyFactory(
-        id: 'f2',
-        name: 'Factory 3',
-        location: Location(lat: 40.7580, lng: -73.9855),
-        distance: 5.7,
-        status: FactoryStatus.deficit,
-        capacity: Capacity(solar: 400, wind: 200, battery: 150),
-        currentGeneration: 180,
-        currentConsumption: 230,
-        balance: -50,
-      ),
-      EnergyFactory(
-        id: 'f3',
-        name: 'Factory 4',
-        location: Location(lat: 40.7489, lng: -73.9680),
-        distance: 8.1,
-        status: FactoryStatus.storage,
-        capacity: Capacity(solar: 600, wind: 400, battery: 300),
-        currentGeneration: 280,
-        currentConsumption: 270,
-        balance: 10,
-      ),
-      EnergyFactory(
-        id: 'f4',
-        name: 'Factory 5',
-        location: Location(lat: 40.7614, lng: -73.9776),
-        distance: 12.4,
-        status: FactoryStatus.surplus,
-        capacity: Capacity(solar: 450, wind: 250, battery: 180),
-        currentGeneration: 380,
-        currentConsumption: 290,
-        balance: 90,
-      ),
-    ];
+    // Initialize factories - empty by default, will be populated from API
+    _factories = [];
 
-    // Initialize offers
-    _offers = [
-      EnergyOffer(
-        id: 'o1',
-        factoryId: 'f1',
-        factoryName: 'Factory 2',
-        type: OfferType.sell,
-        kWh: 70,
-        pricePerKWh: 0.09,
-        distance: 2.3,
-        timestamp: DateTime.now(),
-      ),
-      EnergyOffer(
-        id: 'o2',
-        factoryId: 'f2',
-        factoryName: 'Factory 3',
-        type: OfferType.buy,
-        kWh: 50,
-        pricePerKWh: 0.13,
-        distance: 5.7,
-        timestamp: DateTime.now(),
-      ),
-      EnergyOffer(
-        id: 'o3',
-        factoryId: 'f4',
-        factoryName: 'Factory 5',
-        type: OfferType.sell,
-        kWh: 90,
-        pricePerKWh: 0.08,
-        distance: 12.4,
-        timestamp: DateTime.now(),
-      ),
-    ];
+    // Initialize offers - empty by default, user must create offers manually
+    _offers = [];
 
-    // Initialize trades
-    _trades = [
-      Trade(
-        id: 't1',
-        type: TradeType.buy,
-        factoryName: 'Factory 2',
-        kWh: 30,
-        pricePerKWh: 0.09,
-        totalPrice: 2.7,
-        status: TradeStatus.active,
-        timestamp: DateTime.now().subtract(const Duration(minutes: 15)),
-      ),
-      Trade(
-        id: 't2',
-        type: TradeType.sell,
-        factoryName: 'Factory 5',
-        kWh: 45,
-        pricePerKWh: 0.12,
-        totalPrice: 5.4,
-        status: TradeStatus.completed,
-        timestamp: DateTime.now().subtract(const Duration(hours: 2)),
-        profitLoss: 1.2,
-      ),
-      Trade(
-        id: 't3',
-        type: TradeType.buy,
-        factoryName: 'Factory 3',
-        kWh: 25,
-        pricePerKWh: 0.11,
-        totalPrice: 2.75,
-        status: TradeStatus.completed,
-        timestamp: DateTime.now().subtract(const Duration(hours: 5)),
-        profitLoss: -0.5,
-      ),
-    ];
+    // Initialize trades - empty by default, will be populated when trades are executed
+    _trades = [];
   }
 
   void _startUpdates() {
