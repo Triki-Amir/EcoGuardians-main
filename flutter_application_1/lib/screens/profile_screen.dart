@@ -305,39 +305,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.account_balance, color: Colors.blueAccent, size: 16),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Hedera Account',
-                                style: TextStyle(color: Colors.grey, fontSize: 10),
-                              ),
-                              Text(
-                                _hederaAccountId!,
-                                style: const TextStyle(
-                                  color: Colors.blueAccent,
-                                  fontSize: 11,
-                                  fontFamily: 'monospace',
+                  if (_hederaAccountId != null) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.account_balance, color: Colors.blueAccent, size: 16),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Hedera Account',
+                                  style: TextStyle(color: Colors.grey, fontSize: 10),
                                 ),
-                              ),
-                            ],
+                                Text(
+                                  _hederaAccountId ?? '',
+                                  style: const TextStyle(
+                                    color: Colors.blueAccent,
+                                    fontSize: 11,
+                                    fontFamily: 'monospace',
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
+                  ],
                   if (_tecTokenId != null) ...[
                     const SizedBox(height: 8),
                     Container(
@@ -359,7 +361,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   style: TextStyle(color: Colors.grey, fontSize: 10),
                                 ),
                                 Text(
-                                  _tecTokenId!,
+                                  _tecTokenId ?? '',
                                   style: const TextStyle(
                                     color: Colors.purpleAccent,
                                     fontSize: 11,
