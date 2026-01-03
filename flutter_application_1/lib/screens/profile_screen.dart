@@ -37,7 +37,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _fetchFactoryData();
   }
 
+  @override
+  void didUpdateWidget(ProfileScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Refresh data if factory ID changed
+    if (oldWidget.factoryId != widget.factoryId) {
+      _fetchFactoryData();
+    }
+  }
+
   Future<void> _fetchFactoryData() async {
+    setState(() => _isLoading = true);
+    
     try {
       // Fetch factory data and config in parallel
       final results = await Future.wait([
@@ -51,17 +62,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final factoryData = factoryResult['data'] as Map<String, dynamic>;
       final configData = configResult['data'] as Map<String, dynamic>;
       
-      setState(() {
-        _hederaAccountId = factoryData['hederaAccountId'] as String?;
-        _tecBalance = (factoryData['currencyBalance'] as num?)?.toDouble();
-        _tecTokenId = configData['tecTokenId'] as String?;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _hederaAccountId = factoryData['hederaAccountId'] as String?;
+          _tecBalance = (factoryData['currencyBalance'] as num?)?.toDouble();
+          _tecTokenId = configData['tecTokenId'] as String?;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
       print('Error fetching factory data: $e');
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -73,7 +88,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         backgroundColor: Colors.grey.shade900.withOpacity(0.5),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: onBack,
+          onPressed: widget.onBack,
         ),
         title: Row(
           children: [
@@ -96,8 +111,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ],
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Colors.white),
+            onPressed: _fetchFactoryData,
+            tooltip: 'Refresh',
+          ),
+        ],
       ),
-      body: ListView(
+      body: RefreshIndicator(
+        onRefresh: _fetchFactoryData,
+        child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           // Profile Header
@@ -676,6 +700,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           const SizedBox(height: 24),
         ],
+      ),
       ),
     );
   }
