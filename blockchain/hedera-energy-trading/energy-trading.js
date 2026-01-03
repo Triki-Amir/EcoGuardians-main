@@ -21,6 +21,25 @@ const TEC_TOKEN_ID = process.env.TEC_TOKEN_ID;
 // TEC token has 2 decimal places, so we multiply by 100 to get the smallest unit
 const TEC_DECIMAL_MULTIPLIER = 100;
 
+// Helper to handle PostgreSQL lowercase column names
+function normalizeFactoryData(row) {
+  if (!row) return null;
+  return {
+    factoryId: row.factoryId || row.factoryid,
+    name: row.name,
+    passwordHash: row.passwordHash || row.passwordhash,
+    hederaAccountId: row.hederaAccountId || row.hederaaccountid,
+    hederaPrivateKey: row.hederaPrivateKey || row.hederaprivatekey,
+    energyType: row.energyType || row.energytype,
+    energyBalance: (row.energyBalance !== undefined) ? row.energyBalance : row.energybalance,
+    currencyBalance: (row.currencyBalance !== undefined) ? row.currencyBalance : row.currencybalance,
+    dailyConsumption: (row.dailyConsumption !== undefined) ? row.dailyConsumption : row.dailyconsumption,
+    availableEnergy: (row.availableEnergy !== undefined) ? row.availableEnergy : row.availableenergy,
+    createdAt: row.createdAt || row.createdat,
+    updatedAt: row.updatedAt || row.updatedat
+  };
+}
+
 /**
  * Initialize Hedera Topic for immutable transaction records
  */
@@ -170,7 +189,9 @@ async function mintEnergyTokens(factoryId, amount) {
   
   try {
     // Get factory
-    const factory = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [factoryId]);
+    const row = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [factoryId]);
+    const factory = normalizeFactoryData(row);
+    
     if (!factory) {
       throw new Error(`Factory ${factoryId} not found`);
     }
@@ -279,8 +300,11 @@ async function transferEnergy(fromFactoryId, toFactoryId, amount) {
   
   try {
     // Get both factories (each query is independent with its own parameter array)
-    const fromFactory = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [fromFactoryId]);
-    const toFactory = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [toFactoryId]);
+    const fromRow = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [fromFactoryId]);
+    const toRow = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [toFactoryId]);
+
+    const fromFactory = normalizeFactoryData(fromRow);
+    const toFactory = normalizeFactoryData(toRow);
 
     if (!fromFactory) throw new Error(`Factory ${fromFactoryId} not found`);
     if (!toFactory) throw new Error(`Factory ${toFactoryId} not found`);
@@ -334,8 +358,11 @@ async function createEnergyTrade(tradeData) {
     }
 
     // Validate seller and buyer exist
-    const seller = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [sellerId]);
-    const buyer = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [buyerId]);
+    const sellerRow = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [sellerId]);
+    const buyerRow = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [buyerId]);
+
+    const seller = normalizeFactoryData(sellerRow);
+    const buyer = normalizeFactoryData(buyerRow);
 
     if (!seller) throw new Error(`Seller factory ${sellerId} not found`);
     if (!buyer) throw new Error(`Buyer factory ${buyerId} not found`);
@@ -385,8 +412,11 @@ async function executeTrade(tradeId) {
     }
 
     // Get buyer and seller
-    const buyer = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [trade.buyerId]);
-    const seller = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [trade.sellerId]);
+    const buyerRow = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [trade.buyerId]);
+    const sellerRow = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [trade.sellerId]);
+
+    const buyer = normalizeFactoryData(buyerRow);
+    const seller = normalizeFactoryData(sellerRow);
 
     // Validate Hedera accounts exist
     if (TEC_TOKEN_ID) {
@@ -515,7 +545,9 @@ async function getFactory(factoryId) {
   const db = getDatabase();
   
   try {
-    const factory = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [factoryId]);
+    const row = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [factoryId]);
+    const factory = normalizeFactoryData(row);
+    
     if (!factory) {
       throw new Error(`Factory ${factoryId} not found`);
     }
@@ -532,7 +564,8 @@ async function getAllFactories() {
   const db = getDatabase();
   
   try {
-    return await dbAll(db, 'SELECT * FROM factories ORDER BY factoryId');
+    const rows = await dbAll(db, 'SELECT * FROM factories ORDER BY factoryId');
+    return rows.map(normalizeFactoryData);
   } catch (error) {
     throw error;
   }
@@ -628,7 +661,9 @@ async function getEnergyStatus(factoryId) {
   const db = getDatabase();
   
   try {
-    const factory = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [factoryId]);
+    const row = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [factoryId]);
+    const factory = normalizeFactoryData(row);
+    
     if (!factory) {
       throw new Error(`Factory ${factoryId} not found`);
     }
@@ -664,12 +699,17 @@ async function loginFactory(factoryId, password) {
   const db = getDatabase();
   
   try {
-    const factory = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [factoryId]);
+    // Get raw row from database
+    const row = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [factoryId]);
+    
+    // Normalize keys (converts passwordhash -> passwordHash)
+    const factory = normalizeFactoryData(row);
+
     if (!factory) {
       throw new Error('Invalid factory ID or password');
     }
 
-    // Verify password
+    // Verify password (now factory.passwordHash is defined)
     const passwordMatch = await bcrypt.compare(password, factory.passwordHash);
     if (!passwordMatch) {
       throw new Error('Invalid factory ID or password');
