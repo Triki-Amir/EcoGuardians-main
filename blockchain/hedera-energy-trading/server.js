@@ -62,6 +62,21 @@ app.get('/api/health', (req, res) => {
 });
 
 /**
+ * Get system configuration (token ID)
+ * GET /api/config
+ */
+app.get('/api/config', (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      tecTokenId: process.env.TEC_TOKEN_ID || null,
+      blockchain: 'Hedera Hashgraph Testnet',
+      tokenName: 'TEC (Tunisian Energy Coin)'
+    }
+  });
+});
+
+/**
  * Register a new factory in the industrial zone
  * POST /api/factory/register
  * Body: { factoryId, name, password, initialBalance, energyType, currencyBalance, dailyConsumption, availableEnergy }
@@ -475,6 +490,7 @@ const server = app.listen(PORT, async () => {
   console.log('');
   console.log('Available endpoints:');
   console.log('  GET  /api/health');
+  console.log('  GET  /api/config');
   console.log('  POST /api/factory/register');
   console.log('  POST /api/factory/login');
   console.log('  POST /api/energy/mint');

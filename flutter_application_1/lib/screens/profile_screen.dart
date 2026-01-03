@@ -28,6 +28,7 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   String? _hederaAccountId;
   double? _tecBalance;
+  String? _tecTokenId;
   bool _isLoading = true;
 
   @override
@@ -38,15 +39,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _fetchFactoryData() async {
     try {
-      final result = await ApiService.getFactory(widget.factoryId);
-      final factoryData = result['data'] as Map<String, dynamic>;
+      // Fetch factory data and config in parallel
+      final results = await Future.wait([
+        ApiService.getFactory(widget.factoryId),
+        ApiService.getConfig(),
+      ]);
+      
+      final factoryResult = results[0];
+      final configResult = results[1];
+      
+      final factoryData = factoryResult['data'] as Map<String, dynamic>;
+      final configData = configResult['data'] as Map<String, dynamic>;
       
       setState(() {
         _hederaAccountId = factoryData['hederaAccountId'] as String?;
         _tecBalance = (factoryData['currencyBalance'] as num?)?.toDouble();
+        _tecTokenId = configData['tecTokenId'] as String?;
         _isLoading = false;
       });
     } catch (e) {
+      print('Error fetching factory data: $e');
       setState(() {
         _isLoading = false;
       });
@@ -269,30 +281,63 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ],
                   ),
-                  if (_hederaAccountId != null) ...[
-                    const SizedBox(height: 12),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.account_balance, color: Colors.blueAccent, size: 16),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Hedera Account',
+                                style: TextStyle(color: Colors.grey, fontSize: 10),
+                              ),
+                              Text(
+                                _hederaAccountId!,
+                                style: const TextStyle(
+                                  color: Colors.blueAccent,
+                                  fontSize: 11,
+                                  fontFamily: 'monospace',
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (_tecTokenId != null) ...[
+                    const SizedBox(height: 8),
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.blue.withOpacity(0.1),
+                        color: Colors.purple.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.account_balance, color: Colors.blueAccent, size: 16),
+                          const Icon(Icons.toll, color: Colors.purpleAccent, size: 16),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 const Text(
-                                  'Hedera Account',
+                                  'TEC Token ID',
                                   style: TextStyle(color: Colors.grey, fontSize: 10),
                                 ),
                                 Text(
-                                  _hederaAccountId!,
+                                  _tecTokenId!,
                                   style: const TextStyle(
-                                    color: Colors.blueAccent,
+                                    color: Colors.purpleAccent,
                                     fontSize: 11,
                                     fontFamily: 'monospace',
                                   ),
