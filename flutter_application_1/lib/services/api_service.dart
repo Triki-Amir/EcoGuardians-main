@@ -43,6 +43,13 @@ class ApiService {
     return _handleResponse(response);
   }
 
+  /// Get system configuration including TEC token ID
+  /// GET /api/config
+  static Future<Map<String, dynamic>> getConfig() async {
+    final response = await http.get(Uri.parse('${ApiConfig.baseUrl}/api/config'));
+    return _handleResponse(response);
+  }
+
   /// Register a new factory
   /// POST /api/factory/register
   /// Body: { factoryId, name, password, initialBalance, energyType, currencyBalance, dailyConsumption, availableEnergy }

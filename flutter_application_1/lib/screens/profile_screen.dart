@@ -28,6 +28,7 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   String? _hederaAccountId;
   double? _tecBalance;
+  String? _tecTokenId;
   bool _isLoading = true;
 
   @override
@@ -36,20 +37,46 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _fetchFactoryData();
   }
 
+  @override
+  void didUpdateWidget(ProfileScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Refresh data if factory ID changed
+    if (oldWidget.factoryId != widget.factoryId) {
+      _fetchFactoryData();
+    }
+  }
+
   Future<void> _fetchFactoryData() async {
+    setState(() => _isLoading = true);
+    
     try {
-      final result = await ApiService.getFactory(widget.factoryId);
-      final factoryData = result['data'] as Map<String, dynamic>;
+      // Fetch factory data and config in parallel
+      final results = await Future.wait([
+        ApiService.getFactory(widget.factoryId),
+        ApiService.getConfig(),
+      ]);
       
-      setState(() {
-        _hederaAccountId = factoryData['hederaAccountId'] as String?;
-        _tecBalance = (factoryData['currencyBalance'] as num?)?.toDouble();
-        _isLoading = false;
-      });
+      final factoryResult = results[0];
+      final configResult = results[1];
+      
+      final factoryData = factoryResult['data'] as Map<String, dynamic>;
+      final configData = configResult['data'] as Map<String, dynamic>;
+      
+      if (mounted) {
+        setState(() {
+          _hederaAccountId = factoryData['hederaAccountId'] as String?;
+          _tecBalance = (factoryData['currencyBalance'] as num?)?.toDouble();
+          _tecTokenId = configData['tecTokenId'] as String?;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
+      print('Error fetching factory data: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -61,7 +88,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         backgroundColor: Colors.grey.shade900.withOpacity(0.5),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: onBack,
+          onPressed: widget.onBack,
         ),
         title: Row(
           children: [
@@ -84,8 +111,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ],
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Colors.white),
+            onPressed: _fetchFactoryData,
+            tooltip: 'Refresh',
+          ),
+        ],
       ),
-      body: ListView(
+      body: RefreshIndicator(
+        onRefresh: _fetchFactoryData,
+        child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           // Profile Header
@@ -290,9 +326,44 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   style: TextStyle(color: Colors.grey, fontSize: 10),
                                 ),
                                 Text(
-                                  _hederaAccountId!,
+                                  _hederaAccountId ?? '',
                                   style: const TextStyle(
                                     color: Colors.blueAccent,
+                                    fontSize: 11,
+                                    fontFamily: 'monospace',
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  if (_tecTokenId != null) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.purple.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.toll, color: Colors.purpleAccent, size: 16),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'TEC Token ID',
+                                  style: TextStyle(color: Colors.grey, fontSize: 10),
+                                ),
+                                Text(
+                                  _tecTokenId ?? '',
+                                  style: const TextStyle(
+                                    color: Colors.purpleAccent,
                                     fontSize: 11,
                                     fontFamily: 'monospace',
                                   ),
@@ -631,6 +702,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           const SizedBox(height: 24),
         ],
+      ),
       ),
     );
   }

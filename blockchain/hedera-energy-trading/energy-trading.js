@@ -67,7 +67,7 @@ async function logToHederaTopic(topicId, message) {
 async function registerFactory(factoryData) {
   const { factoryId, name, passwordHash, initialBalance, energyType, currencyBalance, dailyConsumption, availableEnergy } = factoryData;
   
-  const db = await getDatabase();
+  const db = getDatabase();
   
   try {
     // Check if factory already exists
@@ -151,8 +151,8 @@ async function registerFactory(factoryData) {
       availableEnergy: availableEnergy || 0,
       initialTecTransferTxId
     };
-  } finally {
-    db.close();
+  } catch (error) {
+    throw error;
   }
 }
 
@@ -166,7 +166,7 @@ async function mintEnergyTokens(factoryId, amount) {
     throw new Error('Amount must be positive');
   }
 
-  const db = await getDatabase();
+  const db = getDatabase();
   
   try {
     // Get factory
@@ -262,8 +262,8 @@ async function mintEnergyTokens(factoryId, amount) {
       hederaTransferTransactionId: hederaTransferTxId,
       currencyBalance: newCurrencyBalance
     };
-  } finally {
-    db.close();
+  } catch (error) {
+    throw error;
   }
 }
 
@@ -275,7 +275,7 @@ async function transferEnergy(fromFactoryId, toFactoryId, amount) {
     throw new Error('Amount must be positive');
   }
 
-  const db = await getDatabase();
+  const db = getDatabase();
   
   try {
     // Get both factories (each query is independent with its own parameter array)
@@ -313,8 +313,8 @@ async function transferEnergy(fromFactoryId, toFactoryId, amount) {
       amount,
       success: true
     };
-  } finally {
-    db.close();
+  } catch (error) {
+    throw error;
   }
 }
 
@@ -324,7 +324,7 @@ async function transferEnergy(fromFactoryId, toFactoryId, amount) {
 async function createEnergyTrade(tradeData) {
   const { tradeId, sellerId, buyerId, amount, pricePerUnit } = tradeData;
   
-  const db = await getDatabase();
+  const db = getDatabase();
   
   try {
     // Check if trade exists
@@ -362,8 +362,8 @@ async function createEnergyTrade(tradeData) {
       totalPrice,
       status: 'pending'
     };
-  } finally {
-    db.close();
+  } catch (error) {
+    throw error;
   }
 }
 
@@ -371,7 +371,7 @@ async function createEnergyTrade(tradeData) {
  * Execute a pending trade with TEC token transfer
  */
 async function executeTrade(tradeId) {
-  const db = await getDatabase();
+  const db = getDatabase();
   
   try {
     // Get trade
@@ -449,8 +449,8 @@ async function executeTrade(tradeId) {
       status: 'completed',
       hederaTransactionId: hederaTxId
     };
-  } finally {
-    db.close();
+  } catch (error) {
+    throw error;
   }
 }
 
@@ -512,7 +512,7 @@ async function transferTECOnHedera(fromAccount, toAccount, amount) {
  * Get factory information
  */
 async function getFactory(factoryId) {
-  const db = await getDatabase();
+  const db = getDatabase();
   
   try {
     const factory = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [factoryId]);
@@ -520,8 +520,8 @@ async function getFactory(factoryId) {
       throw new Error(`Factory ${factoryId} not found`);
     }
     return factory;
-  } finally {
-    db.close();
+  } catch (error) {
+    throw error;
   }
 }
 
@@ -529,12 +529,12 @@ async function getFactory(factoryId) {
  * Get all factories
  */
 async function getAllFactories() {
-  const db = await getDatabase();
+  const db = getDatabase();
   
   try {
     return await dbAll(db, 'SELECT * FROM factories ORDER BY factoryId');
-  } finally {
-    db.close();
+  } catch (error) {
+    throw error;
   }
 }
 
@@ -542,7 +542,7 @@ async function getAllFactories() {
  * Get trade information
  */
 async function getTrade(tradeId) {
-  const db = await getDatabase();
+  const db = getDatabase();
   
   try {
     const trade = await dbGet(db, 'SELECT * FROM trades WHERE tradeId = $1', [tradeId]);
@@ -550,8 +550,8 @@ async function getTrade(tradeId) {
       throw new Error(`Trade ${tradeId} not found`);
     }
     return trade;
-  } finally {
-    db.close();
+  } catch (error) {
+    throw error;
   }
 }
 
@@ -559,15 +559,15 @@ async function getTrade(tradeId) {
  * Get factory transaction history
  */
 async function getFactoryHistory(factoryId) {
-  const db = await getDatabase();
+  const db = getDatabase();
   
   try {
     return await dbAll(db, 
       'SELECT * FROM transaction_history WHERE factoryId = $1 ORDER BY timestamp DESC',
       [factoryId]
     );
-  } finally {
-    db.close();
+  } catch (error) {
+    throw error;
   }
 }
 
@@ -579,7 +579,7 @@ async function updateAvailableEnergy(factoryId, newAvailableEnergy) {
     throw new Error('Available energy cannot be negative');
   }
 
-  const db = await getDatabase();
+  const db = getDatabase();
   
   try {
     const factory = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [factoryId]);
@@ -591,8 +591,8 @@ async function updateAvailableEnergy(factoryId, newAvailableEnergy) {
       [newAvailableEnergy, factoryId]);
 
     return { factoryId, availableEnergy: newAvailableEnergy };
-  } finally {
-    db.close();
+  } catch (error) {
+    throw error;
   }
 }
 
@@ -604,7 +604,7 @@ async function updateDailyConsumption(factoryId, newDailyConsumption) {
     throw new Error('Daily consumption cannot be negative');
   }
 
-  const db = await getDatabase();
+  const db = getDatabase();
   
   try {
     const factory = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [factoryId]);
@@ -616,8 +616,8 @@ async function updateDailyConsumption(factoryId, newDailyConsumption) {
       [newDailyConsumption, factoryId]);
 
     return { factoryId, dailyConsumption: newDailyConsumption };
-  } finally {
-    db.close();
+  } catch (error) {
+    throw error;
   }
 }
 
@@ -625,7 +625,7 @@ async function updateDailyConsumption(factoryId, newDailyConsumption) {
  * Get energy status (surplus/deficit)
  */
 async function getEnergyStatus(factoryId) {
-  const db = await getDatabase();
+  const db = getDatabase();
   
   try {
     const factory = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [factoryId]);
@@ -652,8 +652,8 @@ async function getEnergyStatus(factoryId) {
       difference,
       status
     };
-  } finally {
-    db.close();
+  } catch (error) {
+    throw error;
   }
 }
 
@@ -661,7 +661,7 @@ async function getEnergyStatus(factoryId) {
  * Login factory with password authentication
  */
 async function loginFactory(factoryId, password) {
-  const db = await getDatabase();
+  const db = getDatabase();
   
   try {
     const factory = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [factoryId]);
@@ -687,8 +687,8 @@ async function loginFactory(factoryId, password) {
       availableEnergy: factory.availableEnergy,
       createdAt: factory.createdAt
     };
-  } finally {
-    db.close();
+  } catch (error) {
+    throw error;
   }
 }
 
