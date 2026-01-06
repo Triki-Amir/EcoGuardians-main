@@ -499,55 +499,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Infrastructure Capacity
-            Card(
-              color: Colors.grey.shade900.withOpacity(0.5),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Row(
-                      children: [
-                        Icon(Icons.factory, color: Colors.blue, size: 20),
-                        SizedBox(width: 8),
-                        Text(
-                          'Infrastructure Capacity',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    _buildInfrastructureRow(
-                      Icons.wb_sunny,
-                      Colors.orange,
-                      'Solar Panels',
-                      '500 kW',
-                    ),
-                    const Divider(color: Colors.grey, height: 24),
-                    _buildInfrastructureRow(
-                      Icons.wind_power,
-                      Colors.blue,
-                      'Wind Turbines',
-                      '300 kW',
-                    ),
-                    const Divider(color: Colors.grey, height: 24),
-                    _buildInfrastructureRow(
-                      Icons.battery_charging_full,
-                      Colors.green,
-                      'Battery Storage',
-                      '200 kWh',
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-
             // Validator Tier
             Card(
               color: Colors.grey.shade900.withOpacity(0.5),
@@ -1001,33 +952,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildInfrastructureRow(
-    IconData icon,
-    Color color,
-    String label,
-    String value,
-  ) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Row(
-          children: [
-            Icon(icon, color: color, size: 20),
-            const SizedBox(width: 8),
-            Text(label, style: const TextStyle(color: Colors.white70)),
-          ],
-        ),
-        Text(
-          value,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
     );
   }
 
