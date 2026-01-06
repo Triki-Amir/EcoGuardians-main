@@ -334,6 +334,36 @@ class ApiService {
     return _handleResponse(response);
   }
 
+  /// Get treasury account transactions from Hedera testnet
+  /// GET /api/treasury/transactions
+  /// Query params: limit (optional, default: 20)
+  static Future<Map<String, dynamic>> getTreasuryTransactions({
+    int limit = 20,
+  }) async {
+    final response = await http.get(
+      Uri.parse('${ApiConfig.baseUrl}/api/treasury/transactions?limit=$limit'),
+    );
+    return _handleResponse(response);
+  }
+
+  /// Get latest block information from Hedera testnet
+  /// GET /api/blockchain/latest-block
+  static Future<Map<String, dynamic>> getLatestBlockInfo() async {
+    final response = await http.get(
+      Uri.parse('${ApiConfig.baseUrl}/api/blockchain/latest-block'),
+    );
+    return _handleResponse(response);
+  }
+
+  /// Get treasury account balance from Hedera testnet
+  /// GET /api/treasury/balance
+  static Future<Map<String, dynamic>> getTreasuryBalance() async {
+    final response = await http.get(
+      Uri.parse('${ApiConfig.baseUrl}/api/treasury/balance'),
+    );
+    return _handleResponse(response);
+  }
+
   /// Handle HTTP response and parse JSON
   static Map<String, dynamic> _handleResponse(http.Response response) {
     Map<String, dynamic> body;

@@ -24,6 +24,11 @@ const {
   loginFactory,
   changeFactoryPassword
 } = require('./energy-trading');
+const {
+  getTreasuryTransactions,
+  getLatestBlockInfo,
+  getTreasuryBalance
+} = require('./hedera-client');
 
 // Initialize Express application
 const app = express();
@@ -509,6 +514,61 @@ app.get('/api/factory/:factoryId/history', async (req, res) => {
   }
 });
 
+/**
+ * Get treasury account transactions from Hedera testnet
+ * GET /api/treasury/transactions
+ * Query params: limit (optional, default: 20)
+ */
+app.get('/api/treasury/transactions', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 20;
+    
+    const transactions = await getTreasuryTransactions(limit);
+
+    res.json({
+      success: true,
+      count: transactions.length,
+      data: transactions
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Get latest block information from Hedera testnet
+ * GET /api/blockchain/latest-block
+ */
+app.get('/api/blockchain/latest-block', async (req, res) => {
+  try {
+    const blockInfo = await getLatestBlockInfo();
+
+    res.json({
+      success: true,
+      data: blockInfo
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Get treasury account balance from Hedera testnet
+ * GET /api/treasury/balance
+ */
+app.get('/api/treasury/balance', async (req, res) => {
+  try {
+    const balance = await getTreasuryBalance();
+
+    res.json({
+      success: true,
+      data: balance
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
@@ -543,6 +603,9 @@ const server = app.listen(PORT, async () => {
   console.log('  GET  /api/factories');
   console.log('  GET  /api/trade/:tradeId');
   console.log('  GET  /api/factory/:factoryId/history');
+  console.log('  GET  /api/treasury/transactions');
+  console.log('  GET  /api/treasury/balance');
+  console.log('  GET  /api/blockchain/latest-block');
   console.log('========================================');
 
   // Initialize database
