@@ -12,8 +12,11 @@ const {
   TransferTransaction,
   TokenMintTransaction,
   AccountId,
-  TokenId
+  TokenId,
+  AccountBalanceQuery,
+  AccountRecordsQuery
 } = require("@hashgraph/sdk");
+const axios = require('axios');
 require("dotenv").config();
 
 /**
@@ -229,10 +232,182 @@ async function mintTECTokens(tokenId, amount) {
   }
 }
 
+/**
+ * Get treasury account transactions from Hedera Mirror Node API
+ * Uses the REST API to fetch transaction history
+ * 
+ * @param {number} limit - Maximum number of transactions to retrieve (default: 20)
+ * @returns {Promise<Array>} Array of transaction objects with details
+ */
+async function getTreasuryTransactions(limit = 20) {
+  try {
+    const treasuryId = process.env.TREASURY_ACCOUNT_ID || process.env.MY_ACCOUNT_ID;
+    
+    if (!treasuryId) {
+      throw new Error('Treasury account ID not configured');
+    }
+
+    // Hedera Mirror Node REST API endpoint for testnet
+    const mirrorNodeUrl = `https://testnet.mirrornode.hedera.com/api/v1/transactions`;
+    
+    // Query parameters for treasury account transactions
+    const params = {
+      'account.id': treasuryId,
+      limit: limit,
+      order: 'desc', // Most recent first
+      transactiontype: 'CRYPTOTRANSFER' // Focus on token/crypto transfers
+    };
+
+    console.log(`Fetching transactions for treasury account: ${treasuryId}`);
+    
+    const response = await axios.get(mirrorNodeUrl, { params });
+    
+    if (!response.data || !response.data.transactions) {
+      return [];
+    }
+
+    // Transform the data into a more consumable format
+    const transactions = response.data.transactions.map(tx => {
+      // Extract token transfers if any
+      const tokenTransfers = tx.token_transfers || [];
+      const tecTokenId = process.env.TEC_TOKEN_ID;
+      
+      // Find TEC token transfers
+      const tecTransfers = tokenTransfers.filter(t => 
+        tecTokenId && t.token_id === tecTokenId
+      );
+
+      // Determine transaction type and amount
+      let transactionType = 'CRYPTO_TRANSFER';
+      let amount = 0;
+      let counterParty = null;
+
+      if (tecTransfers.length > 0) {
+        transactionType = 'TOKEN_TRANSFER';
+        // Find the transfer involving treasury
+        const treasuryTransfer = tecTransfers.find(t => 
+          t.account === treasuryId
+        );
+        if (treasuryTransfer) {
+          amount = Math.abs(treasuryTransfer.amount) / 100; // Convert from smallest unit (2 decimals)
+          // Find counterparty
+          const otherTransfer = tecTransfers.find(t => 
+            t.account !== treasuryId
+          );
+          if (otherTransfer) {
+            counterParty = otherTransfer.account;
+          }
+        }
+      }
+
+      return {
+        transactionId: tx.transaction_id,
+        consensusTimestamp: tx.consensus_timestamp,
+        type: tx.name || transactionType,
+        result: tx.result,
+        charged_tx_fee: tx.charged_tx_fee,
+        memo: tx.memo_base64 ? Buffer.from(tx.memo_base64, 'base64').toString() : '',
+        amount: amount,
+        counterParty: counterParty,
+        token_transfers: tecTransfers
+      };
+    });
+
+    return transactions;
+  } catch (error) {
+    console.error('Failed to fetch treasury transactions:', error.message);
+    throw new Error(`Failed to fetch transactions from Hedera Mirror Node: ${error.message}`);
+  }
+}
+
+/**
+ * Get the latest block information from Hedera Mirror Node API
+ * 
+ * @returns {Promise<Object>} Object containing block height and timestamp
+ */
+async function getLatestBlockInfo() {
+  try {
+    // Hedera Mirror Node REST API endpoint for blocks
+    const mirrorNodeUrl = 'https://testnet.mirrornode.hedera.com/api/v1/blocks';
+    
+    // Get the latest block
+    const params = {
+      limit: 1,
+      order: 'desc'
+    };
+
+    console.log('Fetching latest block information from Hedera testnet...');
+    
+    const response = await axios.get(mirrorNodeUrl, { params });
+    
+    if (!response.data || !response.data.blocks || response.data.blocks.length === 0) {
+      throw new Error('No block data available');
+    }
+
+    const latestBlock = response.data.blocks[0];
+    
+    return {
+      blockNumber: latestBlock.number,
+      timestamp: latestBlock.timestamp.from,
+      hash: latestBlock.hash,
+      previousHash: latestBlock.previous_hash,
+      gasUsed: latestBlock.gas_used,
+      transactionCount: latestBlock.count
+    };
+  } catch (error) {
+    console.error('Failed to fetch latest block info:', error.message);
+    throw new Error(`Failed to fetch block info from Hedera Mirror Node: ${error.message}`);
+  }
+}
+
+/**
+ * Get treasury account balance from Hedera network
+ * 
+ * @returns {Promise<Object>} Object containing HBAR and TEC token balances
+ */
+async function getTreasuryBalance() {
+  const { client } = initializeHederaClient();
+  
+  try {
+    const treasuryId = process.env.TREASURY_ACCOUNT_ID || process.env.MY_ACCOUNT_ID;
+    
+    if (!treasuryId) {
+      throw new Error('Treasury account ID not configured');
+    }
+
+    const query = new AccountBalanceQuery()
+      .setAccountId(AccountId.fromString(treasuryId));
+
+    const balance = await query.execute(client);
+    
+    const result = {
+      accountId: treasuryId,
+      hbarBalance: balance.hbars.toString(),
+      tokens: {}
+    };
+
+    // Get TEC token balance if configured
+    const tecTokenId = process.env.TEC_TOKEN_ID;
+    if (tecTokenId && balance.tokens) {
+      const tecBalance = balance.tokens.get(TokenId.fromString(tecTokenId));
+      if (tecBalance) {
+        result.tokens.TEC = tecBalance.toNumber() / 100; // Convert from smallest unit
+      }
+    }
+
+    return result;
+  } finally {
+    client.close();
+  }
+}
+
 module.exports = { 
   initializeHederaClient, 
   createFactoryAccount, 
   associateTokenWithAccount,
   transferTokensBetweenAccounts,
-  mintTECTokens
+  mintTECTokens,
+  getTreasuryTransactions,
+  getLatestBlockInfo,
+  getTreasuryBalance
 };

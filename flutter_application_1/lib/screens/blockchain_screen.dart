@@ -23,6 +23,14 @@ class _BlockchainScreenState extends State<BlockchainScreen> with SingleTickerPr
   String? _hederaAccountId;
   double? _tecBalance;
   bool _isLoading = true;
+  
+  // Hedera blockchain data
+  List<Map<String, dynamic>> _transactions = [];
+  int? _blockHeight;
+  String? _latestBlockHash;
+  DateTime? _latestBlockTime;
+  int? _transactionCount;
+  bool _loadingBlockchainData = true;
 
   @override
   void initState() {
@@ -32,6 +40,7 @@ class _BlockchainScreenState extends State<BlockchainScreen> with SingleTickerPr
       duration: const Duration(seconds: 2),
     )..repeat();
     _fetchFactoryData();
+    _fetchBlockchainData();
   }
 
   Future<void> _fetchFactoryData() async {
@@ -47,6 +56,42 @@ class _BlockchainScreenState extends State<BlockchainScreen> with SingleTickerPr
     } catch (e) {
       setState(() {
         _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _fetchBlockchainData() async {
+    try {
+      // Fetch treasury transactions and latest block info in parallel
+      final results = await Future.wait([
+        ApiService.getTreasuryTransactions(limit: 10),
+        ApiService.getLatestBlockInfo(),
+      ]);
+
+      final transactionsResult = results[0] as Map<String, dynamic>;
+      final blockInfoResult = results[1] as Map<String, dynamic>;
+
+      final transactionsData = transactionsResult['data'] as List;
+      final blockData = blockInfoResult['data'] as Map<String, dynamic>;
+
+      setState(() {
+        _transactions = transactionsData.map((tx) => tx as Map<String, dynamic>).toList();
+        _blockHeight = blockData['blockNumber'] as int?;
+        _latestBlockHash = blockData['hash'] as String?;
+        _transactionCount = blockData['transactionCount'] as int?;
+        
+        // Parse timestamp
+        final timestampStr = blockData['timestamp'] as String?;
+        if (timestampStr != null) {
+          _latestBlockTime = DateTime.parse(timestampStr);
+        }
+        
+        _loadingBlockchainData = false;
+      });
+    } catch (e) {
+      print('Error fetching blockchain data: $e');
+      setState(() {
+        _loadingBlockchainData = false;
       });
     }
   }
@@ -230,14 +275,28 @@ class _BlockchainScreenState extends State<BlockchainScreen> with SingleTickerPr
                     style: TextStyle(color: Colors.grey, fontSize: 12),
                   ),
                   const SizedBox(height: 4),
-                  const Text(
-                    '1,234,567',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
+                  _loadingBlockchainData
+                      ? const SizedBox(
+                          height: 18,
+                          width: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Text(
+                          _blockHeight != null
+                              ? _blockHeight.toString().replaceAllMapped(
+                                    RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'),
+                                    (Match m) => '${m[1]},',
+                                  )
+                              : 'N/A',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
                 ],
               ),
             ),
@@ -281,38 +340,29 @@ class _BlockchainScreenState extends State<BlockchainScreen> with SingleTickerPr
                     ],
                   ),
                   const SizedBox(height: 16),
-                  _buildTransactionItem(
-                    icon: Icons.bolt,
-                    iconColor: Colors.yellow,
-                    title: 'Solar generation',
-                    type: 'generation',
-                    typeColor: Colors.yellow,
-                    amount: '45.3 kWh',
-                    time: DateTime.now().subtract(const Duration(minutes: 5)),
-                    hash: '0x7f9fade1c0d57a7af66ab4ead79fade1c0d57a7af66ab4ead7c2c2eb7b11a91385',
-                  ),
-                  const SizedBox(height: 12),
-                  _buildTransactionItem(
-                    icon: Icons.swap_horiz,
-                    iconColor: Colors.blue,
-                    title: 'P2P Trade with Factory 2',
-                    type: 'trade',
-                    typeColor: Colors.blue,
-                    amount: '30 kWh',
-                    time: DateTime.now().subtract(const Duration(minutes: 15)),
-                    hash: '0x9f2fade1c0d57a7af66ab4ead79fade1c0d57a7af66ab4ead7c2c2eb7b11a91456',
-                  ),
-                  const SizedBox(height: 12),
-                  _buildTransactionItem(
-                    icon: Icons.attach_money,
-                    iconColor: Colors.green,
-                    title: 'Payment received',
-                    type: 'payment',
-                    typeColor: Colors.green,
-                    amount: '5.4 TEC',
-                    time: DateTime.now().subtract(const Duration(hours: 2)),
-                    hash: '0x3f8fade1c0d57a7af66ab4ead79fade1c0d57a7af66ab4ead7c2c2eb7b11a91789',
-                  ),
+                  if (_loadingBlockchainData)
+                    const Center(
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                      ),
+                    )
+                  else if (_transactions.isEmpty)
+                    const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(20.0),
+                        child: Text(
+                          'No transactions available',
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      ),
+                    )
+                  else
+                    ..._transactions.take(5).map((tx) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _buildTransactionItemFromHedera(tx),
+                      );
+                    }).toList(),
                 ],
               ),
             ),
@@ -332,32 +382,47 @@ class _BlockchainScreenState extends State<BlockchainScreen> with SingleTickerPr
                     style: TextStyle(color: Colors.grey, fontSize: 14),
                   ),
                   const SizedBox(height: 16),
-                  _buildStatRow('Block Number', '1,234,567'),
-                  _buildStatRow('Timestamp', TimeOfDay.now().format(context)),
-                  _buildStatRow('Transactions', '23'),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Block Hash',
-                        style: TextStyle(color: Colors.grey, fontSize: 12),
+                  if (_loadingBlockchainData)
+                    const Center(
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
                       ),
-                      Row(
-                        children: [
-                          Text(
-                            '0x7f9fade...91385',
-                            style: TextStyle(
-                              color: Colors.purple.shade400,
-                              fontSize: 12,
-                              fontFamily: 'monospace',
+                    )
+                  else ...[
+                    _buildStatRow('Block Number', _blockHeight?.toString() ?? 'N/A'),
+                    _buildStatRow(
+                      'Timestamp',
+                      _latestBlockTime != null
+                          ? '${_latestBlockTime!.hour.toString().padLeft(2, '0')}:${_latestBlockTime!.minute.toString().padLeft(2, '0')}:${_latestBlockTime!.second.toString().padLeft(2, '0')}'
+                          : 'N/A',
+                    ),
+                    _buildStatRow('Transactions', _transactionCount?.toString() ?? 'N/A'),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Block Hash',
+                          style: TextStyle(color: Colors.grey, fontSize: 12),
+                        ),
+                        Row(
+                          children: [
+                            Text(
+                              _latestBlockHash != null && _latestBlockHash!.length > 20
+                                  ? '${_latestBlockHash!.substring(0, 10)}...${_latestBlockHash!.substring(_latestBlockHash!.length - 8)}'
+                                  : _latestBlockHash ?? 'N/A',
+                              style: TextStyle(
+                                color: Colors.purple.shade400,
+                                fontSize: 12,
+                                fontFamily: 'monospace',
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          const Icon(Icons.open_in_new, size: 12, color: Colors.grey),
-                        ],
-                      ),
-                    ],
-                  ),
+                            const SizedBox(width: 8),
+                            const Icon(Icons.open_in_new, size: 12, color: Colors.grey),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -675,6 +740,62 @@ class _BlockchainScreenState extends State<BlockchainScreen> with SingleTickerPr
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildTransactionItemFromHedera(Map<String, dynamic> tx) {
+    // Parse transaction data
+    final transactionId = tx['transactionId'] as String? ?? '';
+    final timestamp = tx['consensusTimestamp'] as String? ?? '';
+    final type = tx['type'] as String? ?? 'UNKNOWN';
+    final amount = (tx['amount'] as num?)?.toDouble() ?? 0.0;
+    final result = tx['result'] as String? ?? '';
+    
+    // Parse timestamp
+    DateTime? txTime;
+    try {
+      if (timestamp.isNotEmpty) {
+        txTime = DateTime.parse(timestamp);
+      }
+    } catch (e) {
+      txTime = DateTime.now();
+    }
+    
+    // Determine icon and color based on transaction type
+    IconData icon = Icons.swap_horiz;
+    Color iconColor = Colors.blue;
+    String title = type;
+    Color typeColor = Colors.blue;
+    
+    if (type.contains('MINT') || type.contains('CREATE')) {
+      icon = Icons.add_circle;
+      iconColor = Colors.green;
+      typeColor = Colors.green;
+      title = 'Token Mint';
+    } else if (type.contains('TRANSFER')) {
+      icon = Icons.swap_horiz;
+      iconColor = Colors.blue;
+      typeColor = Colors.blue;
+      title = 'Token Transfer';
+    } else if (type.contains('ASSOCIATE')) {
+      icon = Icons.link;
+      iconColor = Colors.purple;
+      typeColor = Colors.purple;
+      title = 'Token Association';
+    }
+    
+    // Format amount
+    final amountStr = amount > 0 ? '${amount.toStringAsFixed(2)} TEC' : 'N/A';
+    
+    return _buildTransactionItem(
+      icon: icon,
+      iconColor: iconColor,
+      title: title,
+      type: result,
+      typeColor: result == 'SUCCESS' ? Colors.green : Colors.red,
+      amount: amountStr,
+      time: txTime ?? DateTime.now(),
+      hash: transactionId,
     );
   }
 }
