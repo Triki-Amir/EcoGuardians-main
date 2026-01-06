@@ -117,6 +117,19 @@ class _BlockchainScreenState extends State<BlockchainScreen> with SingleTickerPr
     return '${hash.substring(0, 10)}...${hash.substring(hash.length - 8)}';
   }
 
+  String _formatAccountId(String accountId) {
+    // For Hedera account IDs like 0.0.12345, keep them short
+    // For transaction IDs, show a shortened version
+    if (accountId.startsWith('0.0.')) {
+      return accountId; // Keep account IDs as is
+    }
+    // Truncate long strings
+    if (accountId.length > 20) {
+      return '${accountId.substring(0, 10)}...';
+    }
+    return accountId;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -763,6 +776,10 @@ class _BlockchainScreenState extends State<BlockchainScreen> with SingleTickerPr
       txTime = DateTime.now();
     }
     
+    // Format account IDs for display
+    final formattedInitiator = _formatAccountId(initiator);
+    final formattedCounterParty = counterParty != null ? _formatAccountId(counterParty) : null;
+    
     // Determine icon and color based on transaction type
     IconData icon = Icons.swap_horiz;
     Color iconColor = Colors.blue;
@@ -774,42 +791,38 @@ class _BlockchainScreenState extends State<BlockchainScreen> with SingleTickerPr
       iconColor = Colors.green;
       typeColor = Colors.green;
       title = 'Account Created';
-      if (counterParty != null) {
-        title = '$initiator created account';
+      if (formattedCounterParty != null) {
+        title = '$formattedInitiator created account';
       }
     } else if (type == 'TOKEN TRANSFER') {
       icon = Icons.swap_horiz;
       iconColor = Colors.blue;
       typeColor = Colors.blue;
       title = 'Token Transfer';
-      if (counterParty != null) {
-        title = '$initiator transferred to $counterParty';
+      if (formattedCounterParty != null) {
+        title = '$formattedInitiator → $formattedCounterParty';
       } else {
-        title = '$initiator transferred tokens';
+        title = '$formattedInitiator transferred tokens';
       }
     } else if (type == 'TOKEN ASSOCIATION') {
       icon = Icons.link;
       iconColor = Colors.purple;
       typeColor = Colors.purple;
       title = 'Token Association';
-      if (counterParty != null) {
-        title = '$initiator associated token';
-      } else {
-        title = '$initiator associated token';
-      }
+      title = '$formattedInitiator associated token';
     } else if (type == 'TOKEN MINT') {
       icon = Icons.add_circle;
       iconColor = Colors.amber;
       typeColor = Colors.amber;
-      title = '$initiator minted tokens';
+      title = '$formattedInitiator minted tokens';
     } else if (type == 'TOKEN CREATION') {
       icon = Icons.create;
       iconColor = Colors.green;
       typeColor = Colors.green;
-      title = '$initiator created token';
+      title = '$formattedInitiator created token';
     } else {
       // Generic handling for other types
-      title = '$initiator: $type';
+      title = '$formattedInitiator: $type';
     }
     
     // Format amount
