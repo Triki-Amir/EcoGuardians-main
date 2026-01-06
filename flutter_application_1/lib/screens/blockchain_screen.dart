@@ -117,6 +117,19 @@ class _BlockchainScreenState extends State<BlockchainScreen> with SingleTickerPr
     return '${hash.substring(0, 10)}...${hash.substring(hash.length - 8)}';
   }
 
+  String _formatAccountId(String accountId) {
+    // For Hedera account IDs like 0.0.12345, keep them short
+    // For transaction IDs, show a shortened version
+    if (accountId.startsWith('0.0.')) {
+      return accountId; // Keep account IDs as is
+    }
+    // Truncate long strings
+    if (accountId.length > 20) {
+      return '${accountId.substring(0, 10)}...';
+    }
+    return accountId;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -750,6 +763,8 @@ class _BlockchainScreenState extends State<BlockchainScreen> with SingleTickerPr
     final type = tx['type'] as String? ?? 'UNKNOWN';
     final amount = (tx['amount'] as num?)?.toDouble() ?? 0.0;
     final result = tx['result'] as String? ?? '';
+    final initiator = tx['initiator'] as String? ?? 'Anonymous';
+    final counterParty = tx['counterParty'] as String?;
     
     // Parse timestamp
     DateTime? txTime;
@@ -761,27 +776,52 @@ class _BlockchainScreenState extends State<BlockchainScreen> with SingleTickerPr
       txTime = DateTime.now();
     }
     
+    // Format account IDs for display
+    final formattedInitiator = _formatAccountId(initiator);
+    final formattedCounterParty = counterParty != null ? _formatAccountId(counterParty) : null;
+    
     // Determine icon and color based on transaction type
     IconData icon = Icons.swap_horiz;
     Color iconColor = Colors.blue;
     String title = type;
     Color typeColor = Colors.blue;
     
-    if (type.contains('MINT') || type.contains('CREATE')) {
-      icon = Icons.add_circle;
+    if (type == 'ACCOUNT CREATED') {
+      icon = Icons.person_add;
       iconColor = Colors.green;
       typeColor = Colors.green;
-      title = 'Token Mint';
-    } else if (type.contains('TRANSFER')) {
+      title = 'Account Created';
+      if (formattedCounterParty != null) {
+        title = '$formattedInitiator created account';
+      }
+    } else if (type == 'TOKEN TRANSFER') {
       icon = Icons.swap_horiz;
       iconColor = Colors.blue;
       typeColor = Colors.blue;
       title = 'Token Transfer';
-    } else if (type.contains('ASSOCIATE')) {
+      if (formattedCounterParty != null) {
+        title = '$formattedInitiator → $formattedCounterParty';
+      } else {
+        title = '$formattedInitiator transferred tokens';
+      }
+    } else if (type == 'TOKEN ASSOCIATION') {
       icon = Icons.link;
       iconColor = Colors.purple;
       typeColor = Colors.purple;
-      title = 'Token Association';
+      title = '$formattedInitiator associated token';
+    } else if (type == 'TOKEN MINT') {
+      icon = Icons.add_circle;
+      iconColor = Colors.amber;
+      typeColor = Colors.amber;
+      title = '$formattedInitiator minted tokens';
+    } else if (type == 'TOKEN CREATION') {
+      icon = Icons.create;
+      iconColor = Colors.green;
+      typeColor = Colors.green;
+      title = '$formattedInitiator created token';
+    } else {
+      // Generic handling for other types
+      title = '$formattedInitiator: $type';
     }
     
     // Format amount
@@ -791,8 +831,8 @@ class _BlockchainScreenState extends State<BlockchainScreen> with SingleTickerPr
       icon: icon,
       iconColor: iconColor,
       title: title,
-      type: result,
-      typeColor: result == 'SUCCESS' ? Colors.green : Colors.red,
+      type: type,
+      typeColor: typeColor,
       amount: amountStr,
       time: txTime ?? DateTime.now(),
       hash: transactionId,
