@@ -306,20 +306,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Infrastructure Capacity
+            // Wallet Card
             Card(
               color: Colors.grey.shade900.withOpacity(0.5),
-              child: Padding(
+              child: Container(
                 padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.blue.shade600.withOpacity(0.2),
+                      Colors.purple.shade600.withOpacity(0.2),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Colors.blue.shade600.withOpacity(0.3),
+                  ),
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(
+                    Row(
                       children: [
-                        Icon(Icons.factory, color: Colors.blue, size: 20),
-                        SizedBox(width: 8),
-                        Text(
-                          'Infrastructure Capacity',
+                        const Icon(Icons.account_balance_wallet,
+                            color: Colors.blue, size: 20),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Wallet',
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 16,
@@ -329,25 +344,154 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ],
                     ),
                     const SizedBox(height: 16),
-                    _buildInfrastructureRow(
-                      Icons.wb_sunny,
-                      Colors.orange,
-                      'Solar Panels',
-                      '500 kW',
+                    Text(
+                      'TEC Balance',
+                      style: TextStyle(
+                        color: Colors.blue.shade300,
+                        fontSize: 12,
+                      ),
                     ),
-                    const Divider(color: Colors.grey, height: 24),
-                    _buildInfrastructureRow(
-                      Icons.wind_power,
-                      Colors.blue,
-                      'Wind Turbines',
-                      '300 kW',
+                    const SizedBox(height: 4),
+                    _isLoading
+                        ? const SizedBox(
+                            height: 32,
+                            width: 32,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : Text(
+                            '${_tecBalance?.toStringAsFixed(2) ?? '0.00'} TEC',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 32,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                    if (_tecTokenId != null) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.black26,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.token,
+                              color: Colors.grey,
+                              size: 16,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'TEC Token ID',
+                                    style: TextStyle(
+                                      color: Colors.grey,
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                  Text(
+                                    _tecTokenId!,
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 12,
+                                      fontFamily: 'Monospace',
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Energy Balance Card
+            Card(
+              color: Colors.grey.shade900.withOpacity(0.5),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.bolt, color: Colors.orange, size: 20),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Energy Balance',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                     ),
-                    const Divider(color: Colors.grey, height: 24),
-                    _buildInfrastructureRow(
-                      Icons.battery_charging_full,
-                      Colors.green,
-                      'Battery Storage',
-                      '200 kWh',
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Energy Type',
+                                style: TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                _energyType ?? 'N/A',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              const Text(
+                                'Available Energy',
+                                style: TextStyle(
+                                  color: Colors.grey,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                widget.availableEnergy != null
+                                    ? '${widget.availableEnergy!.toStringAsFixed(1)} kWh'
+                                    : 'N/A',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -808,33 +952,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildInfrastructureRow(
-    IconData icon,
-    Color color,
-    String label,
-    String value,
-  ) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Row(
-          children: [
-            Icon(icon, color: color, size: 20),
-            const SizedBox(width: 8),
-            Text(label, style: const TextStyle(color: Colors.white70)),
-          ],
-        ),
-        Text(
-          value,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
     );
   }
 
