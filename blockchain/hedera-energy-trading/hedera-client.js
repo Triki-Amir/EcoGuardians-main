@@ -234,7 +234,10 @@ async function mintTECTokens(tokenId, amount) {
 
 /**
  * Get treasury account transactions from Hedera Mirror Node API
- * Uses the REST API to fetch transaction history
+ * Fetches transactions matching HashScan operations view:
+ * - Account created (CRYPTOCREATEACCOUNT)
+ * - Token transfer (CRYPTOTRANSFER with token transfers)
+ * - Token association (TOKENASSOCIATE)
  * 
  * @param {number} limit - Maximum number of transactions to retrieve (default: 20)
  * @returns {Promise<Array>} Array of transaction objects with details
@@ -251,11 +254,11 @@ async function getTreasuryTransactions(limit = 20) {
     const mirrorNodeUrl = `https://testnet.mirrornode.hedera.com/api/v1/transactions`;
     
     // Query parameters for treasury account transactions
+    // Fetch multiple transaction types that appear in HashScan operations
     const params = {
       'account.id': treasuryId,
       limit: limit,
-      order: 'desc', // Most recent first
-      transactiontype: 'CRYPTOTRANSFER' // Focus on token/crypto transfers
+      order: 'desc' // Most recent first
     };
 
     console.log(`Fetching transactions for treasury account: ${treasuryId}`);
@@ -277,38 +280,72 @@ async function getTreasuryTransactions(limit = 20) {
         tecTokenId && t.token_id === tecTokenId
       );
 
-      // Determine transaction type and amount
-      let transactionType = 'CRYPTO_TRANSFER';
+      // Determine transaction type, amount, and parties
+      let transactionType = tx.name || 'UNKNOWN';
+      let displayType = transactionType;
       let amount = 0;
       let counterParty = null;
+      let initiator = null;
 
-      if (tecTransfers.length > 0) {
-        transactionType = 'TOKEN_TRANSFER';
-        // Find the transfer involving treasury
-        const treasuryTransfer = tecTransfers.find(t => 
-          t.account === treasuryId
-        );
-        if (treasuryTransfer) {
-          amount = Math.abs(treasuryTransfer.amount) / 100; // Convert from smallest unit (2 decimals)
-          // Find counterparty
-          const otherTransfer = tecTransfers.find(t => 
-            t.account !== treasuryId
-          );
-          if (otherTransfer) {
-            counterParty = otherTransfer.account;
-          }
+      // Get the initiator (payer account ID)
+      if (tx.transaction_id) {
+        // Transaction ID format: AccountId-ValidStartSeconds-ValidStartNanos
+        const parts = tx.transaction_id.split('-');
+        if (parts.length >= 1) {
+          initiator = parts[0];
         }
+      }
+
+      // Classify transaction types as they appear in HashScan
+      if (transactionType === 'CRYPTOCREATEACCOUNT') {
+        displayType = 'ACCOUNT CREATED';
+        // The initiator created a new account
+        if (tx.entity_id) {
+          counterParty = tx.entity_id; // The created account
+        }
+      } else if (transactionType === 'TOKENASSOCIATE') {
+        displayType = 'TOKEN ASSOCIATION';
+        // The account that got associated with the token
+        if (tx.entity_id) {
+          counterParty = tx.entity_id;
+        }
+      } else if (transactionType === 'CRYPTOTRANSFER') {
+        if (tecTransfers.length > 0) {
+          displayType = 'TOKEN TRANSFER';
+          // Find the transfer involving treasury
+          const treasuryTransfer = tecTransfers.find(t => 
+            t.account === treasuryId
+          );
+          if (treasuryTransfer) {
+            amount = Math.abs(treasuryTransfer.amount) / 100; // Convert from smallest unit (2 decimals)
+            // Find counterparty
+            const otherTransfer = tecTransfers.find(t => 
+              t.account !== treasuryId
+            );
+            if (otherTransfer) {
+              counterParty = otherTransfer.account;
+            }
+          }
+        } else {
+          displayType = 'TOKEN TRANSFER';
+        }
+      } else if (transactionType === 'TOKENMINT') {
+        displayType = 'TOKEN MINT';
+      } else if (transactionType === 'TOKENCREATION') {
+        displayType = 'TOKEN CREATION';
       }
 
       return {
         transactionId: tx.transaction_id,
         consensusTimestamp: tx.consensus_timestamp,
-        type: tx.name || transactionType,
+        type: displayType,
+        rawType: transactionType,
         result: tx.result,
         charged_tx_fee: tx.charged_tx_fee,
         memo: tx.memo_base64 ? Buffer.from(tx.memo_base64, 'base64').toString() : '',
         amount: amount,
         counterParty: counterParty,
+        initiator: initiator, // Who initiated the transaction
         token_transfers: tecTransfers
       };
     });

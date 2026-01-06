@@ -750,6 +750,8 @@ class _BlockchainScreenState extends State<BlockchainScreen> with SingleTickerPr
     final type = tx['type'] as String? ?? 'UNKNOWN';
     final amount = (tx['amount'] as num?)?.toDouble() ?? 0.0;
     final result = tx['result'] as String? ?? '';
+    final initiator = tx['initiator'] as String? ?? 'Anonymous';
+    final counterParty = tx['counterParty'] as String?;
     
     // Parse timestamp
     DateTime? txTime;
@@ -767,21 +769,47 @@ class _BlockchainScreenState extends State<BlockchainScreen> with SingleTickerPr
     String title = type;
     Color typeColor = Colors.blue;
     
-    if (type.contains('MINT') || type.contains('CREATE')) {
-      icon = Icons.add_circle;
+    if (type == 'ACCOUNT CREATED') {
+      icon = Icons.person_add;
       iconColor = Colors.green;
       typeColor = Colors.green;
-      title = 'Token Mint';
-    } else if (type.contains('TRANSFER')) {
+      title = 'Account Created';
+      if (counterParty != null) {
+        title = '$initiator created account';
+      }
+    } else if (type == 'TOKEN TRANSFER') {
       icon = Icons.swap_horiz;
       iconColor = Colors.blue;
       typeColor = Colors.blue;
       title = 'Token Transfer';
-    } else if (type.contains('ASSOCIATE')) {
+      if (counterParty != null) {
+        title = '$initiator transferred to $counterParty';
+      } else {
+        title = '$initiator transferred tokens';
+      }
+    } else if (type == 'TOKEN ASSOCIATION') {
       icon = Icons.link;
       iconColor = Colors.purple;
       typeColor = Colors.purple;
       title = 'Token Association';
+      if (counterParty != null) {
+        title = '$initiator associated token';
+      } else {
+        title = '$initiator associated token';
+      }
+    } else if (type == 'TOKEN MINT') {
+      icon = Icons.add_circle;
+      iconColor = Colors.amber;
+      typeColor = Colors.amber;
+      title = '$initiator minted tokens';
+    } else if (type == 'TOKEN CREATION') {
+      icon = Icons.create;
+      iconColor = Colors.green;
+      typeColor = Colors.green;
+      title = '$initiator created token';
+    } else {
+      // Generic handling for other types
+      title = '$initiator: $type';
     }
     
     // Format amount
@@ -791,8 +819,8 @@ class _BlockchainScreenState extends State<BlockchainScreen> with SingleTickerPr
       icon: icon,
       iconColor: iconColor,
       title: title,
-      type: result,
-      typeColor: result == 'SUCCESS' ? Colors.green : Colors.red,
+      type: type,
+      typeColor: typeColor,
       amount: amountStr,
       time: txTime ?? DateTime.now(),
       hash: transactionId,
