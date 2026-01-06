@@ -10,21 +10,21 @@ class ApiConfig {
     'API_BASE_URL',
     defaultValue: 'http://localhost:3000',
   );
-  
+
   /// Base URL for the NILM Model API
   /// For development: http://localhost:3001 (Express gateway to Flask)
   static String nilmApiBaseUrl = const String.fromEnvironment(
     'NILM_API_BASE_URL',
     defaultValue: 'http://localhost:3001',
   );
-  
+
   /// Base URL for the Predictive Maintenance Model 2 API
   /// For development: http://localhost:3002 (Express gateway to Flask at 5002)
   static String model2ApiBaseUrl = const String.fromEnvironment(
     'MODEL2_API_BASE_URL',
     defaultValue: 'http://localhost:3002',
   );
-  
+
   /// Placeholder for open trades (no specific buyer/seller)
   static const String openTradeMarker = 'OPEN';
 }
@@ -39,14 +39,18 @@ class ApiService {
   /// Health check endpoint
   /// GET /api/health
   static Future<Map<String, dynamic>> healthCheck() async {
-    final response = await http.get(Uri.parse('${ApiConfig.baseUrl}/api/health'));
+    final response = await http.get(
+      Uri.parse('${ApiConfig.baseUrl}/api/health'),
+    );
     return _handleResponse(response);
   }
 
   /// Get system configuration including TEC token ID
   /// GET /api/config
   static Future<Map<String, dynamic>> getConfig() async {
-    final response = await http.get(Uri.parse('${ApiConfig.baseUrl}/api/config'));
+    final response = await http.get(
+      Uri.parse('${ApiConfig.baseUrl}/api/config'),
+    );
     return _handleResponse(response);
   }
 
@@ -90,10 +94,7 @@ class ApiService {
     final response = await http.post(
       Uri.parse('${ApiConfig.baseUrl}/api/factory/login'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'factoryId': factoryId,
-        'password': password,
-      }),
+      body: jsonEncode({'factoryId': factoryId, 'password': password}),
     );
     return _handleResponse(response);
   }
@@ -131,9 +132,7 @@ class ApiService {
     final response = await http.post(
       Uri.parse('${ApiConfig.baseUrl}/api/trade/execute'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'tradeId': tradeId,
-      }),
+      body: jsonEncode({'tradeId': tradeId}),
     );
     return _handleResponse(response);
   }
@@ -150,13 +149,17 @@ class ApiService {
   /// Get all factories in the industrial zone
   /// GET /api/factories
   static Future<Map<String, dynamic>> getAllFactories() async {
-    final response = await http.get(Uri.parse('${ApiConfig.baseUrl}/api/factories'));
+    final response = await http.get(
+      Uri.parse('${ApiConfig.baseUrl}/api/factories'),
+    );
     return _handleResponse(response);
   }
 
   /// Get factory energy balance
   /// GET /api/factory/:factoryId/balance
-  static Future<Map<String, dynamic>> getFactoryBalance(String factoryId) async {
+  static Future<Map<String, dynamic>> getFactoryBalance(
+    String factoryId,
+  ) async {
     final response = await http.get(
       Uri.parse('${ApiConfig.baseUrl}/api/factory/$factoryId/balance'),
     );
@@ -165,7 +168,9 @@ class ApiService {
 
   /// Get factory available energy
   /// GET /api/factory/:factoryId/available-energy
-  static Future<Map<String, dynamic>> getAvailableEnergy(String factoryId) async {
+  static Future<Map<String, dynamic>> getAvailableEnergy(
+    String factoryId,
+  ) async {
     final response = await http.get(
       Uri.parse('${ApiConfig.baseUrl}/api/factory/$factoryId/available-energy'),
     );
@@ -192,7 +197,9 @@ class ApiService {
 
   /// Get factory transaction history
   /// GET /api/factory/:factoryId/history
-  static Future<Map<String, dynamic>> getFactoryHistory(String factoryId) async {
+  static Future<Map<String, dynamic>> getFactoryHistory(
+    String factoryId,
+  ) async {
     final response = await http.get(
       Uri.parse('${ApiConfig.baseUrl}/api/factory/$factoryId/history'),
     );
@@ -208,10 +215,7 @@ class ApiService {
     final response = await http.post(
       Uri.parse('${ApiConfig.baseUrl}/api/energy/mint'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'factoryId': factoryId,
-        'amount': amount,
-      }),
+      body: jsonEncode({'factoryId': factoryId, 'amount': amount}),
     );
     return _handleResponse(response);
   }
@@ -244,9 +248,7 @@ class ApiService {
     final response = await http.put(
       Uri.parse('${ApiConfig.baseUrl}/api/factory/$factoryId/available-energy'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'availableEnergy': availableEnergy,
-      }),
+      body: jsonEncode({'availableEnergy': availableEnergy}),
     );
     return _handleResponse(response);
   }
@@ -258,10 +260,29 @@ class ApiService {
     required double dailyConsumption,
   }) async {
     final response = await http.put(
-      Uri.parse('${ApiConfig.baseUrl}/api/factory/$factoryId/daily-consumption'),
+      Uri.parse(
+        '${ApiConfig.baseUrl}/api/factory/$factoryId/daily-consumption',
+      ),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'dailyConsumption': dailyConsumption}),
+    );
+    return _handleResponse(response);
+  }
+
+  /// Change factory password
+  /// PUT /api/factory/:factoryId/password
+  /// Body: { currentPassword, newPassword }
+  static Future<Map<String, dynamic>> changePassword({
+    required String factoryId,
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final response = await http.put(
+      Uri.parse('${ApiConfig.baseUrl}/api/factory/$factoryId/password'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({
-        'dailyConsumption': dailyConsumption,
+        'currentPassword': currentPassword,
+        'newPassword': newPassword,
       }),
     );
     return _handleResponse(response);
@@ -277,9 +298,7 @@ class ApiService {
     final response = await http.post(
       Uri.parse('${ApiConfig.nilmApiBaseUrl}/api/predict'),
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'aggregate_sequence': aggregateSequence,
-      }),
+      body: jsonEncode({'aggregate_sequence': aggregateSequence}),
     );
     return _handleResponse(response);
   }
@@ -318,7 +337,7 @@ class ApiService {
   /// Handle HTTP response and parse JSON
   static Map<String, dynamic> _handleResponse(http.Response response) {
     Map<String, dynamic> body;
-    
+
     try {
       body = jsonDecode(response.body) as Map<String, dynamic>;
     } on FormatException {
@@ -328,7 +347,7 @@ class ApiService {
         message: 'Invalid response from server: ${response.body}',
       );
     }
-    
+
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return body;
     } else {

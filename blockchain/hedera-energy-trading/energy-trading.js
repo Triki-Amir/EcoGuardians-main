@@ -21,39 +21,20 @@ const TEC_TOKEN_ID = process.env.TEC_TOKEN_ID;
 // TEC token has 2 decimal places, so we multiply by 100 to get the smallest unit
 const TEC_DECIMAL_MULTIPLIER = 100;
 
-// Helper to handle PostgreSQL lowercase column names
-function normalizeFactoryData(row) {
-  if (!row) return null;
-  return {
-    factoryId: row.factoryId || row.factoryid,
-    name: row.name,
-    passwordHash: row.passwordHash || row.passwordhash,
-    hederaAccountId: row.hederaAccountId || row.hederaaccountid,
-    hederaPrivateKey: row.hederaPrivateKey || row.hederaprivatekey,
-    energyType: row.energyType || row.energytype,
-    energyBalance: (row.energyBalance !== undefined) ? row.energyBalance : row.energybalance,
-    currencyBalance: (row.currencyBalance !== undefined) ? row.currencyBalance : row.currencybalance,
-    dailyConsumption: (row.dailyConsumption !== undefined) ? row.dailyConsumption : row.dailyconsumption,
-    availableEnergy: (row.availableEnergy !== undefined) ? row.availableEnergy : row.availableenergy,
-    createdAt: row.createdAt || row.createdat,
-    updatedAt: row.updatedAt || row.updatedat
-  };
-}
-
 /**
  * Initialize Hedera Topic for immutable transaction records
  */
 async function createEnergyTradingTopic() {
   const { client } = initializeHederaClient();
-  
+
   try {
     const topicCreateTx = await new TopicCreateTransaction()
       .setTopicMemo("Energy Trading Transaction Log")
       .execute(client);
-    
+
     const receipt = await topicCreateTx.getReceipt(client);
     const topicId = receipt.topicId;
-    
+
     console.log(`✓ Energy Trading Topic created: ${topicId}`);
     return topicId;
   } finally {
@@ -66,13 +47,13 @@ async function createEnergyTradingTopic() {
  */
 async function logToHederaTopic(topicId, message) {
   const { client } = initializeHederaClient();
-  
+
   try {
     const submitTx = await new TopicMessageSubmitTransaction()
       .setTopicId(topicId)
       .setMessage(JSON.stringify(message))
       .execute(client);
-    
+
     const receipt = await submitTx.getReceipt(client);
     return receipt.status.toString();
   } finally {
@@ -85,9 +66,9 @@ async function logToHederaTopic(topicId, message) {
  */
 async function registerFactory(factoryData) {
   const { factoryId, name, passwordHash, initialBalance, energyType, currencyBalance, dailyConsumption, availableEnergy } = factoryData;
-  
+
   const db = getDatabase();
-  
+
   try {
     // Check if factory already exists
     const existing = await dbGet(db, 'SELECT factoryId FROM factories WHERE factoryId = $1', [factoryId]);
@@ -99,7 +80,7 @@ async function registerFactory(factoryData) {
     let hederaAccountId = null;
     let hederaPrivateKey = null;
     let initialTecTransferTxId = null;
-    
+
     if (TEC_TOKEN_ID) {
       try {
         console.log(`Creating Hedera account for factory ${factoryId}...`);
@@ -110,23 +91,23 @@ async function registerFactory(factoryData) {
         // Associate the account with TEC token
         console.log(`Associating TEC token with account ${hederaAccountId}...`);
         await associateTokenWithAccount(hederaAccountId, hederaPrivateKey, TEC_TOKEN_ID);
-        
+
         // Transfer initial TEC amount from treasury to factory
         if (currencyBalance && currencyBalance > 0) {
           const { operatorKey, treasuryId } = initializeHederaClient();
-          
+
           // Get treasury private key from environment
           const treasuryPrivateKey = process.env.MY_PRIVATE_KEY;
-          
+
           if (!treasuryPrivateKey) {
             throw new Error('Treasury private key not found in environment');
           }
-          
+
           console.log(`Transferring initial ${currencyBalance} TEC from treasury to factory ${factoryId}...`);
-          
+
           // Convert TEC amount to smallest unit
           const tecAmountInSmallestUnit = Math.floor(currencyBalance * TEC_DECIMAL_MULTIPLIER);
-          
+
           initialTecTransferTxId = await transferTokensBetweenAccounts(
             treasuryId,
             treasuryPrivateKey,
@@ -134,10 +115,10 @@ async function registerFactory(factoryData) {
             TEC_TOKEN_ID,
             tecAmountInSmallestUnit
           );
-          
+
           console.log(`✓ Initial TEC transfer completed: ${initialTecTransferTxId}`);
         }
-        
+
         // TODO: Add account cleanup if token association fails
         // Current limitation: If association fails, the account is orphaned with 10 HBAR
         // Future improvement: Delete account and recover HBAR on failure
@@ -186,12 +167,10 @@ async function mintEnergyTokens(factoryId, amount) {
   }
 
   const db = getDatabase();
-  
+
   try {
     // Get factory
-    const row = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [factoryId]);
-    const factory = normalizeFactoryData(row);
-    
+    const factory = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [factoryId]);
     if (!factory) {
       throw new Error(`Factory ${factoryId} not found`);
     }
@@ -199,39 +178,39 @@ async function mintEnergyTokens(factoryId, amount) {
     // Mint TEC tokens on Hedera if token is configured
     let hederaMintTxId = null;
     let hederaTransferTxId = null;
-    
+
     if (TEC_TOKEN_ID) {
       // Validate token ID format
       if (!/^0\.0\.\d+$/.test(TEC_TOKEN_ID)) {
         throw new Error(`Invalid TEC_TOKEN_ID format: ${TEC_TOKEN_ID}. Expected format: 0.0.xxxxx`);
       }
-      
+
       try {
         console.log(`\n=== Minting TEC tokens for ${factoryId} ===`);
-        
+
         // Convert energy amount to TEC tokens (in smallest unit)
         // For renewable energy, 1 kWh of energy = equivalent TEC value
         // With 2 decimals, multiply by 100 to get smallest unit
         const tecAmountInSmallestUnit = Math.floor(amount * TEC_DECIMAL_MULTIPLIER);
-        
+
         console.log(`Minting ${amount} TEC (${tecAmountInSmallestUnit} in smallest unit) on Hedera blockchain...`);
-        
+
         hederaMintTxId = await mintTECTokens(TEC_TOKEN_ID, tecAmountInSmallestUnit);
-        
+
         console.log(`=== TEC tokens minted successfully ===\n`);
-        
+
         // Transfer minted TEC from treasury to factory account
         if (factory.hederaAccountId && factory.hederaPrivateKey) {
           const { treasuryId } = initializeHederaClient();
           const treasuryPrivateKey = process.env.MY_PRIVATE_KEY;
-          
+
           if (!treasuryPrivateKey) {
             throw new Error('Treasury private key not found in environment');
           }
-          
+
           console.log(`\n=== Transferring minted TEC from treasury to factory ${factoryId} ===`);
           console.log(`Transferring ${amount} TEC from treasury to factory account ${factory.hederaAccountId}...`);
-          
+
           hederaTransferTxId = await transferTokensBetweenAccounts(
             treasuryId,
             treasuryPrivateKey,
@@ -239,13 +218,13 @@ async function mintEnergyTokens(factoryId, amount) {
             TEC_TOKEN_ID,
             tecAmountInSmallestUnit
           );
-          
+
           console.log(`✓ TEC transfer to factory completed: ${hederaTransferTxId}`);
           console.log(`=== Transfer completed successfully ===\n`);
         } else {
           console.warn(`Warning: Factory ${factoryId} does not have a Hedera account. TEC remains in treasury.`);
         }
-        
+
       } catch (error) {
         // Fail the entire operation if Hedera minting or transfer fails
         throw new Error(`Failed to mint/transfer ${amount} TEC tokens for factory ${factoryId} on Hedera: ${error.message}`);
@@ -256,8 +235,8 @@ async function mintEnergyTokens(factoryId, amount) {
     // Note: 1:1 ratio - minting 1 kWh of energy also credits 1 TEC token
     const newEnergyBalance = factory.energyBalance + amount;
     const newCurrencyBalance = factory.currencyBalance + amount;
-    
-    await dbRun(db, 'UPDATE factories SET energyBalance = $1, currencyBalance = $2, updatedAt = EXTRACT(EPOCH FROM NOW()) WHERE factoryId = $3', 
+
+    await dbRun(db, 'UPDATE factories SET energyBalance = $1, currencyBalance = $2, updatedAt = EXTRACT(EPOCH FROM NOW()) WHERE factoryId = $3',
       [newEnergyBalance, newCurrencyBalance, factoryId]);
 
     // Record transaction history for mint
@@ -265,7 +244,7 @@ async function mintEnergyTokens(factoryId, amount) {
       INSERT INTO transaction_history (factoryId, transactionType, amount, hederaTransactionId)
       VALUES ($1, 'MINT', $2, $3)
     `, [factoryId, amount, hederaMintTxId]);
-    
+
     // Record transaction history for transfer if it occurred
     if (hederaTransferTxId) {
       await dbRun(db, `
@@ -297,14 +276,11 @@ async function transferEnergy(fromFactoryId, toFactoryId, amount) {
   }
 
   const db = getDatabase();
-  
+
   try {
     // Get both factories (each query is independent with its own parameter array)
-    const fromRow = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [fromFactoryId]);
-    const toRow = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [toFactoryId]);
-
-    const fromFactory = normalizeFactoryData(fromRow);
-    const toFactory = normalizeFactoryData(toRow);
+    const fromFactory = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [fromFactoryId]);
+    const toFactory = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [toFactoryId]);
 
     if (!fromFactory) throw new Error(`Factory ${fromFactoryId} not found`);
     if (!toFactory) throw new Error(`Factory ${toFactoryId} not found`);
@@ -325,7 +301,7 @@ async function transferEnergy(fromFactoryId, toFactoryId, amount) {
       INSERT INTO transaction_history (factoryId, transactionType, amount, relatedFactoryId)
       VALUES ($1, 'TRANSFER_OUT', $2, $3)
     `, [fromFactoryId, amount, toFactoryId]);
-    
+
     await dbRun(db, `
       INSERT INTO transaction_history (factoryId, transactionType, amount, relatedFactoryId)
       VALUES ($1, 'TRANSFER_IN', $2, $3)
@@ -347,9 +323,9 @@ async function transferEnergy(fromFactoryId, toFactoryId, amount) {
  */
 async function createEnergyTrade(tradeData) {
   const { tradeId, sellerId, buyerId, amount, pricePerUnit } = tradeData;
-  
+
   const db = getDatabase();
-  
+
   try {
     // Check if trade exists
     const existing = await dbGet(db, 'SELECT tradeId FROM trades WHERE tradeId = $1', [tradeId]);
@@ -358,11 +334,8 @@ async function createEnergyTrade(tradeData) {
     }
 
     // Validate seller and buyer exist
-    const sellerRow = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [sellerId]);
-    const buyerRow = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [buyerId]);
-
-    const seller = normalizeFactoryData(sellerRow);
-    const buyer = normalizeFactoryData(buyerRow);
+    const seller = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [sellerId]);
+    const buyer = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [buyerId]);
 
     if (!seller) throw new Error(`Seller factory ${sellerId} not found`);
     if (!buyer) throw new Error(`Buyer factory ${buyerId} not found`);
@@ -399,7 +372,7 @@ async function createEnergyTrade(tradeData) {
  */
 async function executeTrade(tradeId) {
   const db = getDatabase();
-  
+
   try {
     // Get trade
     const trade = await dbGet(db, 'SELECT * FROM trades WHERE tradeId = $1', [tradeId]);
@@ -412,11 +385,8 @@ async function executeTrade(tradeId) {
     }
 
     // Get buyer and seller
-    const buyerRow = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [trade.buyerId]);
-    const sellerRow = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [trade.sellerId]);
-
-    const buyer = normalizeFactoryData(buyerRow);
-    const seller = normalizeFactoryData(sellerRow);
+    const buyer = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [trade.buyerId]);
+    const seller = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [trade.sellerId]);
 
     // Validate Hedera accounts exist
     if (TEC_TOKEN_ID) {
@@ -468,7 +438,7 @@ async function executeTrade(tradeId) {
       INSERT INTO transaction_history (factoryId, transactionType, amount, relatedFactoryId, hederaTransactionId)
       VALUES ($1, 'TRADE_SELL', $2, $3, $4)
     `, [trade.sellerId, trade.amount, trade.buyerId, hederaTxId]);
-    
+
     await dbRun(db, `
       INSERT INTO transaction_history (factoryId, transactionType, amount, relatedFactoryId, hederaTransactionId)
       VALUES ($1, 'TRADE_BUY', $2, $3, $4)
@@ -543,11 +513,9 @@ async function transferTECOnHedera(fromAccount, toAccount, amount) {
  */
 async function getFactory(factoryId) {
   const db = getDatabase();
-  
+
   try {
-    const row = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [factoryId]);
-    const factory = normalizeFactoryData(row);
-    
+    const factory = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [factoryId]);
     if (!factory) {
       throw new Error(`Factory ${factoryId} not found`);
     }
@@ -562,10 +530,9 @@ async function getFactory(factoryId) {
  */
 async function getAllFactories() {
   const db = getDatabase();
-  
+
   try {
-    const rows = await dbAll(db, 'SELECT * FROM factories ORDER BY factoryId');
-    return rows.map(normalizeFactoryData);
+    return await dbAll(db, 'SELECT * FROM factories ORDER BY factoryId');
   } catch (error) {
     throw error;
   }
@@ -576,7 +543,7 @@ async function getAllFactories() {
  */
 async function getTrade(tradeId) {
   const db = getDatabase();
-  
+
   try {
     const trade = await dbGet(db, 'SELECT * FROM trades WHERE tradeId = $1', [tradeId]);
     if (!trade) {
@@ -593,9 +560,9 @@ async function getTrade(tradeId) {
  */
 async function getFactoryHistory(factoryId) {
   const db = getDatabase();
-  
+
   try {
-    return await dbAll(db, 
+    return await dbAll(db,
       'SELECT * FROM transaction_history WHERE factoryId = $1 ORDER BY timestamp DESC',
       [factoryId]
     );
@@ -613,7 +580,7 @@ async function updateAvailableEnergy(factoryId, newAvailableEnergy) {
   }
 
   const db = getDatabase();
-  
+
   try {
     const factory = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [factoryId]);
     if (!factory) {
@@ -638,7 +605,7 @@ async function updateDailyConsumption(factoryId, newDailyConsumption) {
   }
 
   const db = getDatabase();
-  
+
   try {
     const factory = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [factoryId]);
     if (!factory) {
@@ -659,18 +626,16 @@ async function updateDailyConsumption(factoryId, newDailyConsumption) {
  */
 async function getEnergyStatus(factoryId) {
   const db = getDatabase();
-  
+
   try {
-    const row = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [factoryId]);
-    const factory = normalizeFactoryData(row);
-    
+    const factory = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [factoryId]);
     if (!factory) {
       throw new Error(`Factory ${factoryId} not found`);
     }
 
     const difference = factory.availableEnergy - factory.dailyConsumption;
     let status;
-    
+
     if (difference > 0) {
       status = 'surplus';
     } else if (difference < 0) {
@@ -693,24 +658,76 @@ async function getEnergyStatus(factoryId) {
 }
 
 /**
+ * Change factory password
+ */
+async function changeFactoryPassword(factoryId, currentPassword, newPassword) {
+  const db = getDatabase();
+
+  try {
+    // Get factory
+    const factory = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [factoryId]);
+    if (!factory) {
+      throw new Error('Factory not found');
+    }
+
+    // Verify current password
+    // PostgreSQL returns lowercase column names for unquoted identifiers
+    const storedHash = factory.passwordHash || factory.passwordhash;
+
+    if (!storedHash) {
+      console.error('Password hash not found in database record:', Object.keys(factory));
+      throw new Error('Account data corrupted: password hash missing');
+    }
+
+    const passwordMatch = await bcrypt.compare(currentPassword, storedHash);
+    if (!passwordMatch) {
+      throw new Error('Current password is incorrect');
+    }
+
+    // Validate new password strength
+    if (newPassword.length < 6) {
+      throw new Error('New password must be at least 6 characters long');
+    }
+
+    // Hash new password
+    const saltRounds = 10;
+    const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
+
+    // Update password in database
+    await dbRun(db, 'UPDATE factories SET passwordHash = $1, updatedAt = EXTRACT(EPOCH FROM NOW()) WHERE factoryId = $2',
+      [newPasswordHash, factoryId]);
+
+    return {
+      factoryId,
+      message: 'Password changed successfully'
+    };
+  } catch (error) {
+    throw error;
+  }
+}
+
+/**
  * Login factory with password authentication
  */
 async function loginFactory(factoryId, password) {
   const db = getDatabase();
-  
-  try {
-    // Get raw row from database
-    const row = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [factoryId]);
-    
-    // Normalize keys (converts passwordhash -> passwordHash)
-    const factory = normalizeFactoryData(row);
 
+  try {
+    const factory = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [factoryId]);
     if (!factory) {
       throw new Error('Invalid factory ID or password');
     }
 
-    // Verify password (now factory.passwordHash is defined)
-    const passwordMatch = await bcrypt.compare(password, factory.passwordHash);
+    // Verify password
+    const storedHash = factory.passwordHash || factory.passwordhash;
+
+    if (!storedHash) {
+      console.error('Password hash not found in database record during login');
+      // Don't reveal specific error to client for security
+      throw new Error('Invalid factory ID or password');
+    }
+
+    const passwordMatch = await bcrypt.compare(password, storedHash);
     if (!passwordMatch) {
       throw new Error('Invalid factory ID or password');
     }
@@ -747,5 +764,6 @@ module.exports = {
   updateAvailableEnergy,
   updateDailyConsumption,
   getEnergyStatus,
-  loginFactory
+  loginFactory,
+  changeFactoryPassword
 };
