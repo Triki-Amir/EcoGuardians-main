@@ -943,7 +943,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     borderSide: BorderSide(color: Colors.grey.shade700),
                   ),
                   focusedBorder: const OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.blue),
+                    borderSide: BorderSide(
+                      color: Color.fromARGB(255, 96, 171, 232),
+                    ),
                   ),
                 ),
               ),
