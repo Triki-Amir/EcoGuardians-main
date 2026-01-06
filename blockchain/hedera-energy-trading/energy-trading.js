@@ -40,6 +40,21 @@ function normalizeFactoryData(row) {
   };
 }
 
+function normalizeTradeData(row) {
+  if (!row) return null;
+  return {
+    tradeId: row.tradeId || row.tradeid,
+    sellerId: row.sellerId || row.sellerid,
+    buyerId: row.buyerId || row.buyerid,
+    amount: (row.amount !== undefined) ? row.amount : row.amount,
+    pricePerUnit: (row.pricePerUnit !== undefined) ? row.pricePerUnit : row.priceperunit,
+    totalPrice: (row.totalPrice !== undefined) ? row.totalPrice : row.totalprice,
+    status: row.status,
+    hederaTransactionId: row.hederaTransactionId || row.hederatransactionid,
+    timestamp: row.timestamp
+  };
+}
+
 /**
  * Initialize Hedera Topic for immutable transaction records
  */
@@ -402,7 +417,9 @@ async function executeTrade(tradeId) {
   
   try {
     // Get trade
-    const trade = await dbGet(db, 'SELECT * FROM trades WHERE tradeId = $1', [tradeId]);
+    const tradeRow = await dbGet(db, 'SELECT * FROM trades WHERE tradeId = $1', [tradeId]);
+    const trade = normalizeTradeData(tradeRow);
+
     if (!trade) {
       throw new Error(`Trade ${tradeId} not found`);
     }
@@ -417,6 +434,13 @@ async function executeTrade(tradeId) {
 
     const buyer = normalizeFactoryData(buyerRow);
     const seller = normalizeFactoryData(sellerRow);
+
+    if (!buyer) {
+      throw new Error(`Buyer factory ${trade.buyerId} not found`);
+    }
+    if (!seller) {
+      throw new Error(`Seller factory ${trade.sellerId} not found`);
+    }
 
     // Validate Hedera accounts exist
     if (TEC_TOKEN_ID) {
@@ -578,7 +602,9 @@ async function getTrade(tradeId) {
   const db = getDatabase();
   
   try {
-    const trade = await dbGet(db, 'SELECT * FROM trades WHERE tradeId = $1', [tradeId]);
+    const tradeRow = await dbGet(db, 'SELECT * FROM trades WHERE tradeId = $1', [tradeId]);
+    const trade = normalizeTradeData(tradeRow);
+
     if (!trade) {
       throw new Error(`Trade ${tradeId} not found`);
     }
