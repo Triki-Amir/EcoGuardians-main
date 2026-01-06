@@ -808,7 +808,6 @@ class _BlockchainScreenState extends State<BlockchainScreen> with SingleTickerPr
       icon = Icons.link;
       iconColor = Colors.purple;
       typeColor = Colors.purple;
-      title = 'Token Association';
       title = '$formattedInitiator associated token';
     } else if (type == 'TOKEN MINT') {
       icon = Icons.add_circle;
