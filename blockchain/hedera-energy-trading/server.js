@@ -21,8 +21,14 @@ const {
   updateAvailableEnergy,
   updateDailyConsumption,
   getEnergyStatus,
-  loginFactory
+  loginFactory,
+  changeFactoryPassword
 } = require('./energy-trading');
+const {
+  getTreasuryTransactions,
+  getLatestBlockInfo,
+  getTreasuryBalance
+} = require('./hedera-client');
 
 // Initialize Express application
 const app = express();
@@ -84,7 +90,7 @@ app.get('/api/config', (req, res) => {
 app.post('/api/factory/register', async (req, res) => {
   try {
     await ensureDatabase();
-    
+
     const { factoryId, name, password, initialBalance, energyType, currencyBalance, dailyConsumption, availableEnergy } = req.body;
 
     // Validate required fields
@@ -142,7 +148,7 @@ app.post('/api/factory/register', async (req, res) => {
 app.post('/api/factory/login', async (req, res) => {
   try {
     await ensureDatabase();
-    
+
     const { factoryId, password } = req.body;
 
     // Validate required fields
@@ -170,7 +176,7 @@ app.post('/api/factory/login', async (req, res) => {
 app.post('/api/energy/mint', async (req, res) => {
   try {
     await ensureDatabase();
-    
+
     const { factoryId, amount } = req.body;
 
     // Validate input
@@ -198,7 +204,7 @@ app.post('/api/energy/mint', async (req, res) => {
 app.post('/api/energy/transfer', async (req, res) => {
   try {
     await ensureDatabase();
-    
+
     const { fromFactoryId, toFactoryId, amount } = req.body;
 
     // Validate input
@@ -226,7 +232,7 @@ app.post('/api/energy/transfer', async (req, res) => {
 app.post('/api/trade/create', async (req, res) => {
   try {
     await ensureDatabase();
-    
+
     const { tradeId, sellerId, buyerId, amount, pricePerUnit } = req.body;
 
     // Validate input
@@ -262,7 +268,7 @@ app.post('/api/trade/create', async (req, res) => {
 app.post('/api/trade/execute', async (req, res) => {
   try {
     await ensureDatabase();
-    
+
     const { tradeId } = req.body;
 
     if (!tradeId) {
@@ -288,7 +294,7 @@ app.post('/api/trade/execute', async (req, res) => {
 app.get('/api/factory/:factoryId', async (req, res) => {
   try {
     await ensureDatabase();
-    
+
     const { factoryId } = req.params;
     const factory = await getFactory(factoryId);
 
@@ -305,7 +311,7 @@ app.get('/api/factory/:factoryId', async (req, res) => {
 app.get('/api/factory/:factoryId/balance', async (req, res) => {
   try {
     await ensureDatabase();
-    
+
     const { factoryId } = req.params;
     const factory = await getFactory(factoryId);
 
@@ -329,7 +335,7 @@ app.get('/api/factory/:factoryId/balance', async (req, res) => {
 app.get('/api/factory/:factoryId/available-energy', async (req, res) => {
   try {
     await ensureDatabase();
-    
+
     const { factoryId } = req.params;
     const factory = await getFactory(factoryId);
 
@@ -352,7 +358,7 @@ app.get('/api/factory/:factoryId/available-energy', async (req, res) => {
 app.get('/api/factory/:factoryId/energy-status', async (req, res) => {
   try {
     await ensureDatabase();
-    
+
     const { factoryId } = req.params;
     const status = await getEnergyStatus(factoryId);
 
@@ -370,7 +376,7 @@ app.get('/api/factory/:factoryId/energy-status', async (req, res) => {
 app.put('/api/factory/:factoryId/available-energy', async (req, res) => {
   try {
     await ensureDatabase();
-    
+
     const { factoryId } = req.params;
     const { availableEnergy } = req.body;
 
@@ -398,7 +404,7 @@ app.put('/api/factory/:factoryId/available-energy', async (req, res) => {
 app.put('/api/factory/:factoryId/daily-consumption', async (req, res) => {
   try {
     await ensureDatabase();
-    
+
     const { factoryId } = req.params;
     const { dailyConsumption } = req.body;
 
@@ -419,13 +425,49 @@ app.put('/api/factory/:factoryId/daily-consumption', async (req, res) => {
 });
 
 /**
+ * Change factory password
+ * PUT /api/factory/:factoryId/password
+ * Body: { currentPassword, newPassword }
+ */
+app.put('/api/factory/:factoryId/password', async (req, res) => {
+  try {
+    await ensureDatabase();
+
+    const { factoryId } = req.params;
+    const { currentPassword, newPassword } = req.body;
+
+    // Validate required fields
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'Missing required fields: currentPassword, newPassword' });
+    }
+
+    const result = await changeFactoryPassword(factoryId, currentPassword, newPassword);
+
+    res.json({
+      success: true,
+      message: 'Password changed successfully',
+      data: result
+    });
+  } catch (error) {
+    // Return 401 for authentication errors, 400 for validation errors
+    if (error.message.includes('incorrect') || error.message.includes('not found')) {
+      res.status(401).json({ error: error.message });
+    } else if (error.message.includes('at least')) {
+      res.status(400).json({ error: error.message });
+    } else {
+      res.status(500).json({ error: error.message });
+    }
+  }
+});
+
+/**
  * Get all factories in the industrial zone
  * GET /api/factories
  */
 app.get('/api/factories', async (req, res) => {
   try {
     await ensureDatabase();
-    
+
     const factories = await getAllFactories();
 
     res.json({
@@ -445,7 +487,7 @@ app.get('/api/factories', async (req, res) => {
 app.get('/api/trade/:tradeId', async (req, res) => {
   try {
     await ensureDatabase();
-    
+
     const { tradeId } = req.params;
     const trade = await getTrade(tradeId);
 
@@ -462,11 +504,66 @@ app.get('/api/trade/:tradeId', async (req, res) => {
 app.get('/api/factory/:factoryId/history', async (req, res) => {
   try {
     await ensureDatabase();
-    
+
     const { factoryId } = req.params;
     const history = await getFactoryHistory(factoryId);
 
     res.json({ success: true, data: history });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Get treasury account transactions from Hedera testnet
+ * GET /api/treasury/transactions
+ * Query params: limit (optional, default: 20)
+ */
+app.get('/api/treasury/transactions', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 20;
+    
+    const transactions = await getTreasuryTransactions(limit);
+
+    res.json({
+      success: true,
+      count: transactions.length,
+      data: transactions
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Get latest block information from Hedera testnet
+ * GET /api/blockchain/latest-block
+ */
+app.get('/api/blockchain/latest-block', async (req, res) => {
+  try {
+    const blockInfo = await getLatestBlockInfo();
+
+    res.json({
+      success: true,
+      data: blockInfo
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Get treasury account balance from Hedera testnet
+ * GET /api/treasury/balance
+ */
+app.get('/api/treasury/balance', async (req, res) => {
+  try {
+    const balance = await getTreasuryBalance();
+
+    res.json({
+      success: true,
+      data: balance
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -506,8 +603,11 @@ const server = app.listen(PORT, async () => {
   console.log('  GET  /api/factories');
   console.log('  GET  /api/trade/:tradeId');
   console.log('  GET  /api/factory/:factoryId/history');
+  console.log('  GET  /api/treasury/transactions');
+  console.log('  GET  /api/treasury/balance');
+  console.log('  GET  /api/blockchain/latest-block');
   console.log('========================================');
-  
+
   // Initialize database
   try {
     await ensureDatabase();
