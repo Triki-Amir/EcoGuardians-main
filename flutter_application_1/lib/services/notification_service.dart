@@ -52,7 +52,7 @@ class NotificationService extends ChangeNotifier {
     required String tradeType,
   }) {
     final notification = AppNotification(
-      id: 'trade-created-${DateTime.now().millisecondsSinceEpoch}',
+      id: '${tradeId}-created-${DateTime.now().microsecondsSinceEpoch}',
       type: NotificationType.tradeCreated,
       title: 'Trade Created',
       message: 'New $tradeType trade created with $factoryName: ${amount.toStringAsFixed(1)} kWh at ${pricePerUnit.toStringAsFixed(2)} TEC/kWh',
@@ -77,7 +77,7 @@ class NotificationService extends ChangeNotifier {
     required String tradeType,
   }) {
     final notification = AppNotification(
-      id: 'trade-executed-${DateTime.now().millisecondsSinceEpoch}',
+      id: '${tradeId}-executed-${DateTime.now().microsecondsSinceEpoch}',
       type: NotificationType.tradeExecuted,
       title: 'Trade Executed',
       message: 'Trade executed with $factoryName: ${amount.toStringAsFixed(1)} kWh for ${totalPrice.toStringAsFixed(2)} TEC',
@@ -99,7 +99,7 @@ class NotificationService extends ChangeNotifier {
     required double dailyConsumption,
   }) {
     final notification = AppNotification(
-      id: 'energy-low-${DateTime.now().millisecondsSinceEpoch}',
+      id: 'energy-low-${DateTime.now().microsecondsSinceEpoch}',
       type: NotificationType.energyLow,
       title: 'Low Energy Alert',
       message: '⚠️ Your energy (${currentEnergy.toStringAsFixed(1)} kWh) is below daily consumption (${dailyConsumption.toStringAsFixed(1)} kWh). Consider buying energy instead of trading.',
@@ -119,7 +119,7 @@ class NotificationService extends ChangeNotifier {
     required double surplus,
   }) {
     final notification = AppNotification(
-      id: 'energy-high-${DateTime.now().millisecondsSinceEpoch}',
+      id: 'energy-high-${DateTime.now().microsecondsSinceEpoch}',
       type: NotificationType.energyHigh,
       title: 'Energy Surplus',
       message: '✅ You have surplus energy: ${surplus.toStringAsFixed(1)} kWh above daily consumption. Good time to sell!',

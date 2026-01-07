@@ -1200,10 +1200,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         dailyConsumptionController.text.trim(),
                       );
 
-                      if (consumption == null || consumption < 0) {
+                      if (consumption == null || consumption <= 0) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Please enter a valid positive number'),
+                            content: Text('Please enter a valid positive number greater than 0'),
                             backgroundColor: Colors.red,
                           ),
                         );

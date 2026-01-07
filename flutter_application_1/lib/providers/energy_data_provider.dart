@@ -20,6 +20,11 @@ class EnergyDataProvider extends ChangeNotifier {
   double? _dailyConsumption;
   double? _availableEnergy;
   
+  // Energy alert state tracking to prevent spam
+  DateTime? _lastLowEnergyAlert;
+  DateTime? _lastSurplusAlert;
+  static const Duration _alertCooldown = Duration(hours: 1);
+  
   CurrentEnergyData _currentData = CurrentEnergyData(
     generation: 245,
     consumption: 198,
@@ -105,20 +110,30 @@ class EnergyDataProvider extends ChangeNotifier {
       return;
     }
 
+    final now = DateTime.now();
+
     if (_availableEnergy! < _dailyConsumption!) {
-      // Low energy alert
-      _notificationService!.notifyEnergyLow(
-        currentEnergy: _availableEnergy!,
-        dailyConsumption: _dailyConsumption!,
-      );
+      // Low energy alert with cooldown
+      if (_lastLowEnergyAlert == null || 
+          now.difference(_lastLowEnergyAlert!) > _alertCooldown) {
+        _notificationService!.notifyEnergyLow(
+          currentEnergy: _availableEnergy!,
+          dailyConsumption: _dailyConsumption!,
+        );
+        _lastLowEnergyAlert = now;
+      }
     } else if (_availableEnergy! > _dailyConsumption! * 1.5) {
-      // Surplus alert (50% more than daily consumption)
-      final surplus = _availableEnergy! - _dailyConsumption!;
-      _notificationService!.notifyEnergySurplus(
-        currentEnergy: _availableEnergy!,
-        dailyConsumption: _dailyConsumption!,
-        surplus: surplus,
-      );
+      // Surplus alert (50% more than daily consumption) with cooldown
+      if (_lastSurplusAlert == null || 
+          now.difference(_lastSurplusAlert!) > _alertCooldown) {
+        final surplus = _availableEnergy! - _dailyConsumption!;
+        _notificationService!.notifyEnergySurplus(
+          currentEnergy: _availableEnergy!,
+          dailyConsumption: _dailyConsumption!,
+          surplus: surplus,
+        );
+        _lastSurplusAlert = now;
+      }
     }
   }
 
