@@ -206,6 +206,17 @@ class ApiService {
     return _handleResponse(response);
   }
 
+  /// Get factory trades (as buyer or seller)
+  /// GET /api/factory/:factoryId/trades
+  static Future<Map<String, dynamic>> getFactoryTrades(
+    String factoryId,
+  ) async {
+    final response = await http.get(
+      Uri.parse('${ApiConfig.baseUrl}/api/factory/$factoryId/trades'),
+    );
+    return _handleResponse(response);
+  }
+
   /// Mint energy tokens
   /// POST /api/energy/mint
   static Future<Map<String, dynamic>> mintEnergy({
