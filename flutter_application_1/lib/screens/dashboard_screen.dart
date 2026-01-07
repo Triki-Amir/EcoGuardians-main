@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'dart:math' as math;
 import '../providers/energy_data_provider.dart';
+import '../providers/notifications_provider.dart';
 import '../models/factory.dart';
 import '../services/api_service.dart';
 
@@ -711,26 +712,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ],
             ),
             const Divider(color: Colors.grey),
-            _buildNotificationItem(
-              Icons.bolt,
-              Colors.green,
-              'Low Energy Alert',
-              'Your surplus has dropped below 50 kWh',
-              '5 min ago',
-            ),
-            _buildNotificationItem(
-              Icons.local_offer,
-              Colors.blue,
-              'New Trade Offer',
-              'Factory 3 wants to buy 100 kWh at 0.12 TEC/kWh',
-              '15 min ago',
-            ),
-            _buildNotificationItem(
-              Icons.check_circle,
-              Colors.purple,
-              'Contract Executed',
-              'Successfully sold 150 kWh to Factory 2',
-              '1 hour ago',
+            Expanded(
+              child: Consumer<NotificationsProvider>(
+                builder: (context, notificationsProvider, child) {
+                  final notifications = notificationsProvider.notifications;
+                  
+                  if (notifications.isEmpty) {
+                    return Center(
+                      child: Text(
+                        'No notifications',
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 14,
+                        ),
+                      ),
+                    );
+                  }
+                  
+                  return ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: notifications.length,
+                    itemBuilder: (context, index) {
+                      final notification = notifications[index];
+                      return _buildNotificationItem(
+                        notification.icon,
+                        notification.color,
+                        notification.title,
+                        notification.message,
+                        notification.timeAgo,
+                      );
+                    },
+                  );
+                },
+              ),
             ),
           ],
         ),
@@ -840,7 +854,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                     const SizedBox(height: 8),
                     DropdownButtonFormField<String>(
-                      value: selectedEnergyType,
+                      initialValue: selectedEnergyType,
                       style: const TextStyle(color: Colors.white),
                       dropdownColor: Colors.grey.shade800,
                       decoration: InputDecoration(
@@ -951,8 +965,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   
                   try {
                     // Create trade via API - current factory sells to the selected factory
+                    final tradeId = ApiService.generateTradeId();
                     final result = await ApiService.createTrade(
-                      tradeId: ApiService.generateTradeId(),
+                      tradeId: tradeId,
                       sellerId: widget.currentFactoryId,
                       buyerId: factory.id,
                       amount: amount,
@@ -960,6 +975,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     );
                     
                     if (!context.mounted) return;
+                    
+                    // Add notification for the buyer factory
+                    if (context.mounted) {
+                      context.read<NotificationsProvider>().addTradeNotification(
+                        tradeId: tradeId,
+                        sellerFactoryId: widget.currentFactoryId,
+                        sellerFactoryName: factoryNameController.text.isEmpty ? 'Your Factory' : factoryNameController.text,
+                        buyerFactoryId: factory.id,
+                        buyerFactoryName: factory.name,
+                        amount: amount,
+                        pricePerUnit: price,
+                      );
+                    }
                     
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
@@ -1068,7 +1096,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                     const SizedBox(height: 8),
                     DropdownButtonFormField<String>(
-                      value: selectedDelivery,
+                      initialValue: selectedDelivery,
                       style: const TextStyle(color: Colors.white),
                       dropdownColor: Colors.grey.shade800,
                       decoration: InputDecoration(
@@ -1147,8 +1175,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   
                   try {
                     // Create trade via API - seller factory sells to current factory (buyer)
+                    final tradeId = ApiService.generateTradeId();
                     final result = await ApiService.createTrade(
-                      tradeId: ApiService.generateTradeId(),
+                      tradeId: tradeId,
                       sellerId: factory.id,
                       buyerId: widget.currentFactoryId,
                       amount: amount,
@@ -1156,6 +1185,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     );
                     
                     if (!context.mounted) return;
+                    
+                    // Add notification for the buyer factory
+                    if (context.mounted) {
+                      context.read<NotificationsProvider>().addTradeNotification(
+                        tradeId: tradeId,
+                        sellerFactoryId: factory.id,
+                        sellerFactoryName: factory.name,
+                        buyerFactoryId: widget.currentFactoryId,
+                        buyerFactoryName: 'Your Factory',
+                        amount: amount,
+                        pricePerUnit: price,
+                      );
+                    }
                     
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(

@@ -32,8 +32,8 @@ function initializeHederaClient() {
     );
   }
 
-  // Parse private key
-  const privateKey = PrivateKey.fromString(myPrivateKey);
+  // Parse private key - use ECDSA format for accounts created in Hedera portal
+  const privateKey = PrivateKey.fromStringECDSA(myPrivateKey);
 
   // Set up the Hedera client for Testnet
   const client = Client.forTestnet();

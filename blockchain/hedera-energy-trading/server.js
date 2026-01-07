@@ -7,6 +7,8 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const bcrypt = require('bcrypt');
+const WebSocket = require('ws');
+const http = require('http');
 const { initDatabase } = require('./database');
 const {
   registerFactory,
@@ -27,8 +29,24 @@ const {
 // Initialize Express application
 const app = express();
 
+// Create HTTP server for WebSocket support
+const server = http.createServer(app);
+
+// WebSocket server for real-time notifications
+const wss = new WebSocket.Server({ server });
+
+// Store connected clients per factory: { factoryId: [ws1, ws2, ...] }
+const connectedClients = {};
+
+// Store notifications in memory (in production, use Redis or database)
+const notifications = {};
+
 app.use(cors());
 app.use(bodyParser.json());
+
+// Serve static files
+const path = require('path');
+app.use(express.static(path.join(__dirname)));
 
 // Configuration
 const PORT = process.env.PORT || 3000;
@@ -44,6 +62,82 @@ async function ensureDatabase() {
     dbInitPromise = initDatabase();
   }
   await dbInitPromise;
+}
+
+/**
+ * WebSocket Connection Handler
+ */
+wss.on('connection', (ws) => {
+  console.log('🔌 New WebSocket connection');
+
+  ws.on('message', (data) => {
+    try {
+      const message = JSON.parse(data);
+      
+      if (message.type === 'subscribe') {
+        const factoryId = message.factoryId;
+        console.log(`✓ Factory ${factoryId} subscribed to notifications`);
+        
+        // Store connection
+        if (!connectedClients[factoryId]) {
+          connectedClients[factoryId] = [];
+        }
+        connectedClients[factoryId].push(ws);
+        
+        // Send any pending notifications
+        if (notifications[factoryId]) {
+          notifications[factoryId].forEach(notif => {
+            ws.send(JSON.stringify(notif));
+          });
+          notifications[factoryId] = [];
+        }
+        
+        // Confirm subscription
+        ws.send(JSON.stringify({
+          type: 'subscribed',
+          message: `Subscribed to notifications for factory ${factoryId}`
+        }));
+      }
+    } catch (error) {
+      console.error('WebSocket message error:', error);
+    }
+  });
+
+  ws.on('close', () => {
+    // Remove client from all subscriptions
+    Object.keys(connectedClients).forEach(factoryId => {
+      connectedClients[factoryId] = connectedClients[factoryId].filter(client => client !== ws);
+      if (connectedClients[factoryId].length === 0) {
+        delete connectedClients[factoryId];
+      }
+    });
+    console.log('🔌 WebSocket connection closed');
+  });
+
+  ws.on('error', (error) => {
+    console.error('WebSocket error:', error);
+  });
+});
+
+/**
+ * Send notification to a factory
+ */
+function sendNotificationToFactory(factoryId, notification) {
+  console.log(`📢 Sending notification to factory ${factoryId}:`, notification.message);
+  
+  if (connectedClients[factoryId]) {
+    connectedClients[factoryId].forEach(client => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify(notification));
+      }
+    });
+  } else {
+    // Store notification for later if client is not connected
+    if (!notifications[factoryId]) {
+      notifications[factoryId] = [];
+    }
+    notifications[factoryId].push(notification);
+  }
 }
 
 /**
@@ -229,10 +323,26 @@ app.post('/api/trade/create', async (req, res) => {
 
     const result = await createEnergyTrade(tradeData);
 
+    // 📢 Send notification to buyer about the new trade offer
+    const notification = {
+      type: 'new_trade_offer',
+      tradeId: tradeId,
+      sellerId: sellerId,
+      amount: amount,
+      pricePerUnit: pricePerUnit,
+      totalPrice: amount * pricePerUnit,
+      message: `New energy offer from Factory ${sellerId}: ${amount} kWh at ${pricePerUnit} TEC/kWh (Total: ${amount * pricePerUnit} TEC)`,
+      timestamp: new Date().toISOString(),
+      status: 'pending'
+    };
+    
+    sendNotificationToFactory(buyerId, notification);
+
     res.json({
       success: true,
       message: `Trade ${tradeId} created successfully (payment in TEC)`,
-      data: result
+      data: result,
+      notificationSent: true
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -457,18 +567,58 @@ app.get('/api/factory/:factoryId/history', async (req, res) => {
   }
 });
 
+/**
+ * Get notifications for a factory
+ * GET /api/notifications/:factoryId
+ */
+app.get('/api/notifications/:factoryId', async (req, res) => {
+  try {
+    const { factoryId } = req.params;
+    const notifs = notifications[factoryId] || [];
+    
+    res.json({
+      success: true,
+      factoryId: factoryId,
+      count: notifs.length,
+      notifications: notifs
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Clear notifications for a factory
+ * DELETE /api/notifications/:factoryId
+ */
+app.delete('/api/notifications/:factoryId', async (req, res) => {
+  try {
+    const { factoryId } = req.params;
+    const count = notifications[factoryId] ? notifications[factoryId].length : 0;
+    notifications[factoryId] = [];
+    
+    res.json({
+      success: true,
+      message: `Cleared ${count} notifications for factory ${factoryId}`
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({ error: 'Internal server error' });
 });
 
-// Start server
-const server = app.listen(PORT, async () => {
+// Start server with WebSocket support
+const httpServer = server.listen(PORT, async () => {
   console.log('========================================');
   console.log('   Hedera Energy Trading Network API');
   console.log('========================================');
   console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`WebSocket available on ws://localhost:${PORT}`);
   console.log('');
   console.log('Blockchain: Hedera Hashgraph');
   console.log('Token: TEC (Tunisian Energy Coin)');
@@ -490,6 +640,10 @@ const server = app.listen(PORT, async () => {
   console.log('  GET  /api/factories');
   console.log('  GET  /api/trade/:tradeId');
   console.log('  GET  /api/factory/:factoryId/history');
+  console.log('  GET  /api/notifications/:factoryId');
+  console.log('');
+  console.log('WebSocket:');
+  console.log('  Subscribe: {"type": "subscribe", "factoryId": "factory-id"}');
   console.log('========================================');
   
   // Initialize database
@@ -500,7 +654,7 @@ const server = app.listen(PORT, async () => {
   }
 });
 
-server.on('error', (err) => {
+httpServer.on('error', (err) => {
   if (err && err.code === 'EADDRINUSE') {
     console.error(`Port ${PORT} already in use. Start the app with a different PORT or stop the process using this port.`);
     process.exit(1);

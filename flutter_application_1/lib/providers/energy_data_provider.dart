@@ -23,7 +23,7 @@ class EnergyDataProvider extends ChangeNotifier {
     batteryLevel: 78,
   );
 
-  List<EnergyData> _history = [];
+  final List<EnergyData> _history = [];
   List<EnergyFactory> _factories = [];
   List<EnergyOffer> _offers = [];
   List<Trade> _trades = [];
@@ -164,6 +164,36 @@ class EnergyDataProvider extends ChangeNotifier {
       debugPrint('Error fetching trade details: $e');
     }
     return null;
+  }
+
+  /// Add an offer from WebSocket notification
+  void addOfferFromNotification({
+    required String tradeId,
+    required String sellerId,
+    required String sellerName,
+    required double amount,
+    required double pricePerUnit,
+  }) {
+    // Check if offer already exists
+    if (_offers.any((o) => o.id == tradeId)) {
+      debugPrint('Offer $tradeId already exists');
+      return;
+    }
+
+    _offers.add(EnergyOffer(
+      id: tradeId,
+      factoryId: sellerId,
+      factoryName: sellerName,
+      type: OfferType.sell,
+      kWh: amount,
+      pricePerKWh: pricePerUnit,
+      distance: 0,
+      timestamp: DateTime.now(),
+      sellerId: sellerId,
+      buyerId: _currentFactoryId,
+    ));
+    notifyListeners();
+    debugPrint('✅ Added offer $tradeId to offers list');
   }
 
   void _initializeData() {

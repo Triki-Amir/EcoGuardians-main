@@ -61,7 +61,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         backgroundColor: Colors.grey.shade900.withOpacity(0.5),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: onBack,
+          onPressed: widget.onBack,
         ),
         title: Row(
           children: [
@@ -380,7 +380,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       Switch(
                         value: true,
                         onChanged: (val) {},
-                        activeColor: Colors.blue,
+                        activeThumbColor: Colors.blue,
                       ),
                     ],
                   ),
@@ -685,7 +685,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         Switch(
           value: value,
           onChanged: (val) {},
-          activeColor: Colors.blue,
+          activeThumbColor: Colors.blue,
         ),
       ],
     );

@@ -1044,7 +1044,7 @@ List<double> _generateMockAggregateSequence() {
               ),
             ),
           );
-        }).toList(),
+        }),
       ],
     );
   }

@@ -445,7 +445,7 @@ class _SmartContractsScreenState extends State<SmartContractsScreen> {
                   ),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
-                    value: selectedOfferType,
+                    initialValue: selectedOfferType,
                     style: const TextStyle(color: Colors.white),
                     dropdownColor: Colors.grey.shade800,
                     decoration: InputDecoration(

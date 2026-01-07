@@ -14,10 +14,22 @@ const { Pool } = require('pg');
 // PostgreSQL connection pool
 const pool = new Pool({
   host: process.env.DB_HOST || 'localhost',
-  port: process.env.DB_PORT || 5432,
+  port: process.env.DB_PORT || 5433,
   database: process.env.DB_NAME || 'ecoguardians',
   user: process.env.DB_USER || 'postgres',
   password: process.env.DB_PASSWORD || 'postgres'
+});
+
+// Log connection details for debugging
+console.log(`📊 Database configuration:`);
+console.log(`   Host: ${process.env.DB_HOST || 'localhost'}`);
+console.log(`   Port: ${process.env.DB_PORT || 5433}`);
+console.log(`   Database: ${process.env.DB_NAME || 'ecoguardians'}`);
+console.log(`   User: ${process.env.DB_USER || 'postgres'}`);
+
+// Handle pool errors
+pool.on('error', (err) => {
+  console.error('❌ Unexpected error on idle client', err);
 });
 
 /**
@@ -25,7 +37,10 @@ const pool = new Pool({
  * @returns {Promise<void>} Resolves when database is initialized
  */
 async function initDatabase() {
-  const client = await pool.connect();
+  const client = await pool.connect().catch(err => {
+    console.error('❌ Database connection failed:', err.message);
+    throw err;
+  });
   try {
     // Create factories table
     await client.query(`

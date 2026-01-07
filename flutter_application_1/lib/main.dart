@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'providers/energy_data_provider.dart';
+import 'providers/notifications_provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/my_factory_screen.dart';
@@ -10,8 +11,11 @@ import 'screens/blockchain_screen.dart';
 
 void main() {
   runApp(
-    ChangeNotifierProvider(
-      create: (context) => EnergyDataProvider(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (context) => EnergyDataProvider()),
+        ChangeNotifierProvider(create: (context) => NotificationsProvider()),
+      ],
       child: const MyApp(),
     ),
   );
@@ -61,8 +65,13 @@ class _MainScreenState extends State<MainScreen> {
     });
     
     // Update the provider with current factory info
-    final provider = Provider.of<EnergyDataProvider>(context, listen: false);
-    provider.setCurrentFactory(factoryId, factoryName);
+    final energyProvider = Provider.of<EnergyDataProvider>(context, listen: false);
+    energyProvider.setCurrentFactory(factoryId, factoryName);
+    
+    // Connect to WebSocket for real-time notifications
+    final notificationsProvider = Provider.of<NotificationsProvider>(context, listen: false);
+    notificationsProvider.setEnergyDataProvider(energyProvider);
+    notificationsProvider.connectToFactory(factoryId);
   }
 
   void _handleSignOut() {

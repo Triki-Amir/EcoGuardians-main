@@ -326,7 +326,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         const SizedBox(height: 16),
                         DropdownButtonFormField<String>(
-                          value: _selectedEnergyType,
+                          initialValue: _selectedEnergyType,
                           style: const TextStyle(color: Colors.white),
                           dropdownColor: Colors.grey.shade800,
                           decoration: InputDecoration(

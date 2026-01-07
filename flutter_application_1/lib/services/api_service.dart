@@ -4,18 +4,18 @@ import 'package:http/http.dart' as http;
 /// Configuration for API service
 class ApiConfig {
   /// Base URL for the API - configure based on environment
-  /// For development: http://localhost:3000
+  /// For development: http://localhost:3001 (Hedera Energy Trading API)
   /// For production: Update this to your production URL
   static String baseUrl = const String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://localhost:3000',
+    defaultValue: 'http://localhost:3001',
   );
   
   /// Base URL for the NILM Model API
-  /// For development: http://localhost:3001 (Express gateway to Flask)
+  /// For development: http://localhost:3002 (Express gateway to Flask)
   static String nilmApiBaseUrl = const String.fromEnvironment(
     'NILM_API_BASE_URL',
-    defaultValue: 'http://localhost:3001',
+    defaultValue: 'http://localhost:3002',
   );
   
   /// Base URL for the Predictive Maintenance Model 2 API

@@ -152,8 +152,7 @@ async function registerFactory(factoryData) {
       initialTecTransferTxId
     };
   } finally {
-    db.close();
-  }
+    }
 }
 
 /**
@@ -263,8 +262,7 @@ async function mintEnergyTokens(factoryId, amount) {
       currencyBalance: newCurrencyBalance
     };
   } finally {
-    db.close();
-  }
+    }
 }
 
 /**
@@ -314,8 +312,7 @@ async function transferEnergy(fromFactoryId, toFactoryId, amount) {
       success: true
     };
   } finally {
-    db.close();
-  }
+    }
 }
 
 /**
@@ -363,8 +360,7 @@ async function createEnergyTrade(tradeData) {
       status: 'pending'
     };
   } finally {
-    db.close();
-  }
+    }
 }
 
 /**
@@ -450,8 +446,7 @@ async function executeTrade(tradeId) {
       hederaTransactionId: hederaTxId
     };
   } finally {
-    db.close();
-  }
+    }
 }
 
 /**
@@ -521,8 +516,7 @@ async function getFactory(factoryId) {
     }
     return factory;
   } finally {
-    db.close();
-  }
+    }
 }
 
 /**
@@ -534,8 +528,7 @@ async function getAllFactories() {
   try {
     return await dbAll(db, 'SELECT * FROM factories ORDER BY factoryId');
   } finally {
-    db.close();
-  }
+    }
 }
 
 /**
@@ -551,8 +544,7 @@ async function getTrade(tradeId) {
     }
     return trade;
   } finally {
-    db.close();
-  }
+    }
 }
 
 /**
@@ -567,8 +559,7 @@ async function getFactoryHistory(factoryId) {
       [factoryId]
     );
   } finally {
-    db.close();
-  }
+    }
 }
 
 /**
@@ -592,8 +583,7 @@ async function updateAvailableEnergy(factoryId, newAvailableEnergy) {
 
     return { factoryId, availableEnergy: newAvailableEnergy };
   } finally {
-    db.close();
-  }
+    }
 }
 
 /**
@@ -617,8 +607,7 @@ async function updateDailyConsumption(factoryId, newDailyConsumption) {
 
     return { factoryId, dailyConsumption: newDailyConsumption };
   } finally {
-    db.close();
-  }
+    }
 }
 
 /**
@@ -653,8 +642,7 @@ async function getEnergyStatus(factoryId) {
       status
     };
   } finally {
-    db.close();
-  }
+    }
 }
 
 /**
@@ -664,31 +652,52 @@ async function loginFactory(factoryId, password) {
   const db = await getDatabase();
   
   try {
+    if (!password || typeof password !== 'string') {
+      throw new Error('Password is required and must be a string');
+    }
+
     const factory = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [factoryId]);
     if (!factory) {
       throw new Error('Invalid factory ID or password');
     }
 
-    // Verify password
-    const passwordMatch = await bcrypt.compare(password, factory.passwordHash);
-    if (!passwordMatch) {
-      throw new Error('Invalid factory ID or password');
+    if (!factory.passwordHash) {
+      // Fix for factories that were created without password hashes
+      console.warn(`⚠️ WARNING: Factory ${factoryId} has no password hash. Auto-fixing by setting password hash from provided password.`);
+      
+      // Hash the provided password and update the database
+      const saltRounds = 10;
+      const passwordHash = await bcrypt.hash(password, saltRounds);
+      
+      await dbRun(db, 'UPDATE factories SET passwordHash = $1 WHERE factoryId = $2', [passwordHash, factoryId]);
+      
+      console.log(`✓ Password hash updated for factory ${factoryId}`);
+    } else {
+      // Verify password
+      const passwordMatch = await bcrypt.compare(password, factory.passwordHash);
+      if (!passwordMatch) {
+        throw new Error('Invalid factory ID or password');
+      }
     }
+
+    // Get updated factory data
+    const updatedFactory = await dbGet(db, 'SELECT * FROM factories WHERE factoryId = $1', [factoryId]);
 
     // Return factory data without sensitive information
     return {
-      factoryId: factory.factoryId,
-      name: factory.name,
-      hederaAccountId: factory.hederaAccountId,
-      energyType: factory.energyType,
-      energyBalance: factory.energyBalance,
-      currencyBalance: factory.currencyBalance,
-      dailyConsumption: factory.dailyConsumption,
-      availableEnergy: factory.availableEnergy,
-      createdAt: factory.createdAt
+      factoryId: updatedFactory.factoryId,
+      name: updatedFactory.name,
+      hederaAccountId: updatedFactory.hederaAccountId,
+      energyType: updatedFactory.energyType,
+      energyBalance: updatedFactory.energyBalance,
+      currencyBalance: updatedFactory.currencyBalance,
+      dailyConsumption: updatedFactory.dailyConsumption,
+      availableEnergy: updatedFactory.availableEnergy,
+      createdAt: updatedFactory.createdAt
     };
-  } finally {
-    db.close();
+  } catch (error) {
+    console.error('Login error:', error.message);
+    throw error;
   }
 }
 
@@ -709,3 +718,4 @@ module.exports = {
   getEnergyStatus,
   loginFactory
 };
+
