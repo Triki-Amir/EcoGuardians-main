@@ -34,6 +34,14 @@ class _BlockchainScreenState extends State<BlockchainScreen> with SingleTickerPr
   bool _loadingBlockchainData = true;
   bool _loadingFactoryTrades = true;
 
+  // Threshold to distinguish seconds from milliseconds timestamps
+  static const int _timestampThresholdMs = 10000000000;
+
+  // Helper to get value from map with both camelCase and lowercase keys
+  T? _getValue<T>(Map<String, dynamic> map, String camelKey, String lowerKey) {
+    return (map[lowerKey] ?? map[camelKey]) as T?;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -721,15 +729,15 @@ class _BlockchainScreenState extends State<BlockchainScreen> with SingleTickerPr
 
   Widget _buildFactoryTradeItem(Map<String, dynamic> trade) {
     // Parse trade data - handle both camelCase and lowercase from PostgreSQL
-    final tradeId = (trade['tradeid'] ?? trade['tradeId']) as String? ?? '';
-    final sellerId = (trade['sellerid'] ?? trade['sellerId']) as String? ?? '';
-    final buyerId = (trade['buyerid'] ?? trade['buyerId']) as String? ?? '';
-    final sellerName = (trade['sellername'] ?? trade['sellerName']) as String? ?? sellerId;
-    final buyerName = (trade['buyername'] ?? trade['buyerName']) as String? ?? buyerId;
-    final amount = ((trade['amount'] as num?)?.toDouble()) ?? 0.0;
-    final pricePerUnit = ((trade['priceperunit'] ?? trade['pricePerUnit']) as num?)?.toDouble() ?? 0.0;
-    final totalPrice = ((trade['totalprice'] ?? trade['totalPrice']) as num?)?.toDouble() ?? 0.0;
-    final status = (trade['status'] as String?) ?? 'pending';
+    final tradeId = _getValue<String>(trade, 'tradeId', 'tradeid') ?? '';
+    final sellerId = _getValue<String>(trade, 'sellerId', 'sellerid') ?? '';
+    final buyerId = _getValue<String>(trade, 'buyerId', 'buyerid') ?? '';
+    final sellerName = _getValue<String>(trade, 'sellerName', 'sellername') ?? sellerId;
+    final buyerName = _getValue<String>(trade, 'buyerName', 'buyername') ?? buyerId;
+    final amount = (_getValue<num>(trade, 'amount', 'amount')?.toDouble()) ?? 0.0;
+    final pricePerUnit = (_getValue<num>(trade, 'pricePerUnit', 'priceperunit')?.toDouble()) ?? 0.0;
+    final totalPrice = (_getValue<num>(trade, 'totalPrice', 'totalprice')?.toDouble()) ?? 0.0;
+    final status = _getValue<String>(trade, 'status', 'status') ?? 'pending';
     final timestamp = trade['timestamp'];
     
     // Parse timestamp
@@ -739,7 +747,7 @@ class _BlockchainScreenState extends State<BlockchainScreen> with SingleTickerPr
         // Handle both seconds (PostgreSQL EPOCH) and milliseconds
         final epoch = timestamp is int ? timestamp : (timestamp as num).toInt();
         txTime = DateTime.fromMillisecondsSinceEpoch(
-          epoch < 10000000000 ? epoch * 1000 : epoch,
+          epoch < _timestampThresholdMs ? epoch * 1000 : epoch,
         );
       }
     } catch (e) {

@@ -7,6 +7,7 @@ class ProfileScreen extends StatefulWidget {
   final String factoryId;
   final String factoryName;
   final double? currencyBalance;
+  // Deprecated: availableEnergy is now fetched from database in _fetchFactoryData()
   final double? availableEnergy;
   final double? dailyConsumption;
 
