@@ -26,11 +26,13 @@ class _BlockchainScreenState extends State<BlockchainScreen> with SingleTickerPr
   
   // Hedera blockchain data
   List<Map<String, dynamic>> _transactions = [];
+  List<Map<String, dynamic>> _factoryTrades = [];
   int? _blockHeight;
   String? _latestBlockHash;
   DateTime? _latestBlockTime;
   int? _transactionCount;
   bool _loadingBlockchainData = true;
+  bool _loadingFactoryTrades = true;
 
   @override
   void initState() {
@@ -41,6 +43,7 @@ class _BlockchainScreenState extends State<BlockchainScreen> with SingleTickerPr
     )..repeat();
     _fetchFactoryData();
     _fetchBlockchainData();
+    _fetchFactoryTrades();
   }
 
   Future<void> _fetchFactoryData() async {
@@ -92,6 +95,26 @@ class _BlockchainScreenState extends State<BlockchainScreen> with SingleTickerPr
       print('Error fetching blockchain data: $e');
       setState(() {
         _loadingBlockchainData = false;
+      });
+    }
+  }
+
+  Future<void> _fetchFactoryTrades() async {
+    try {
+      final result = await ApiService.getFactoryTrades(widget.factoryId);
+      
+      if (result['success'] == true) {
+        final tradesData = result['data'] as List;
+        
+        setState(() {
+          _factoryTrades = tradesData.map((trade) => trade as Map<String, dynamic>).toList();
+          _loadingFactoryTrades = false;
+        });
+      }
+    } catch (e) {
+      print('Error fetching factory trades: $e');
+      setState(() {
+        _loadingFactoryTrades = false;
       });
     }
   }
@@ -234,15 +257,6 @@ class _BlockchainScreenState extends State<BlockchainScreen> with SingleTickerPr
                           ),
                         ],
                       ),
-                      ElevatedButton(
-                        onPressed: () {},
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue.shade600,
-                          shape: const CircleBorder(),
-                          padding: const EdgeInsets.all(12),
-                        ),
-                        child: const Icon(Icons.qr_code, size: 20, color: Colors.white),
-                      ),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -382,6 +396,54 @@ class _BlockchainScreenState extends State<BlockchainScreen> with SingleTickerPr
           ),
           const SizedBox(height: 16),
 
+          // My Factory Transactions
+          Card(
+            color: Colors.grey.shade900.withOpacity(0.5),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.history, color: Colors.blue, size: 20),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'My Factory Transactions',
+                        style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  if (_loadingFactoryTrades)
+                    const Center(
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                      ),
+                    )
+                  else if (_factoryTrades.isEmpty)
+                    const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(20.0),
+                        child: Text(
+                          'No factory transactions yet',
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      ),
+                    )
+                  else
+                    ..._factoryTrades.map((trade) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _buildFactoryTradeItem(trade),
+                      );
+                    }).toList(),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
           // Latest Block
           Card(
             color: Colors.grey.shade900.withOpacity(0.5),
@@ -442,189 +504,7 @@ class _BlockchainScreenState extends State<BlockchainScreen> with SingleTickerPr
           ),
           const SizedBox(height: 16),
 
-          // Validator Status
-          Card(
-            color: Colors.grey.shade900.withOpacity(0.5),
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    Colors.green.shade600.withOpacity(0.2),
-                    Colors.green.shade800.withOpacity(0.2),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: Colors.green.shade600.withOpacity(0.3),
-                ),
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Validator Status',
-                            style: TextStyle(
-                              color: Colors.green.shade300,
-                              fontSize: 14,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: Colors.green.withOpacity(0.3),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Text(
-                              'Active',
-                              style: TextStyle(color: Colors.greenAccent, fontSize: 12),
-                            ),
-                          ),
-                        ],
-                      ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(
-                            'Rewards Earned',
-                            style: TextStyle(
-                              color: Colors.green.shade300,
-                              fontSize: 10,
-                            ),
-                          ),
-                          const Text(
-                            '147 TEC',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  if (_hederaAccountId != null) ...[
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: Colors.blue.withOpacity(0.3),
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(Icons.account_balance, color: Colors.blueAccent, size: 16),
-                              const SizedBox(width: 8),
-                              const Text(
-                                'Hedera Account ID',
-                                style: TextStyle(
-                                  color: Colors.grey,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  _hederaAccountId!,
-                                  style: const TextStyle(
-                                    color: Colors.blueAccent,
-                                    fontSize: 14,
-                                    fontFamily: 'monospace',
-                                  ),
-                                ),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.copy, size: 16, color: Colors.blueAccent),
-                                onPressed: () => _copyToClipboard(_hederaAccountId!),
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                  ],
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Uptime',
-                              style: TextStyle(
-                                color: Colors.green.shade300,
-                                fontSize: 12,
-                              ),
-                            ),
-                            const Text(
-                              '99.8%',
-                              style: TextStyle(color: Colors.white, fontSize: 16),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Blocks Validated',
-                              style: TextStyle(
-                                color: Colors.green.shade300,
-                                fontSize: 12,
-                              ),
-                            ),
-                            const Text(
-                              '1,247',
-                              style: TextStyle(color: Colors.white, fontSize: 16),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // QR Code Scanner Button
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: ElevatedButton.icon(
-              onPressed: () {},
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.purple.shade600,
-              ),
-              icon: const Icon(Icons.qr_code_scanner, color: Colors.white),
-              label: const Text('Scan QR Code', style: TextStyle(color: Colors.white)),
-            ),
-          ),
-          const SizedBox(height: 24),
+          // Live Transactions Feed
         ],
       ),
     );
@@ -836,6 +716,147 @@ class _BlockchainScreenState extends State<BlockchainScreen> with SingleTickerPr
       amount: amountStr,
       time: txTime ?? DateTime.now(),
       hash: transactionId,
+    );
+  }
+
+  Widget _buildFactoryTradeItem(Map<String, dynamic> trade) {
+    // Parse trade data
+    final tradeId = trade['tradeid'] as String? ?? '';
+    final sellerId = trade['sellerid'] as String? ?? '';
+    final buyerId = trade['buyerid'] as String? ?? '';
+    final sellerName = trade['sellername'] as String? ?? sellerId;
+    final buyerName = trade['buyername'] as String? ?? buyerId;
+    final amount = (trade['amount'] as num?)?.toDouble() ?? 0.0;
+    final pricePerUnit = (trade['priceperunit'] as num?)?.toDouble() ?? 0.0;
+    final totalPrice = (trade['totalprice'] as num?)?.toDouble() ?? 0.0;
+    final status = trade['status'] as String? ?? 'pending';
+    final timestamp = trade['timestamp'];
+    
+    // Parse timestamp
+    DateTime? txTime;
+    try {
+      if (timestamp != null) {
+        // Handle both seconds (PostgreSQL EPOCH) and milliseconds
+        final epoch = timestamp is int ? timestamp : (timestamp as num).toInt();
+        txTime = DateTime.fromMillisecondsSinceEpoch(
+          epoch < 10000000000 ? epoch * 1000 : epoch,
+        );
+      }
+    } catch (e) {
+      txTime = DateTime.now();
+    }
+    
+    // Determine if this factory is the buyer or seller
+    final isSeller = sellerId == widget.factoryId;
+    final counterParty = isSeller ? buyerName : sellerName;
+    final direction = isSeller ? 'to' : 'from';
+    
+    // Determine icon and color
+    IconData icon = isSeller ? Icons.arrow_upward : Icons.arrow_downward;
+    Color iconColor = isSeller ? Colors.red : Colors.green;
+    String title = '$direction $counterParty';
+    Color typeColor = status == 'completed' ? Colors.green : Colors.orange;
+    
+    // Format amount - show energy amount and TEC amount
+    final amountStr = '${amount.toStringAsFixed(2)} kWh (${totalPrice.toStringAsFixed(2)} TEC)';
+    
+    return Card(
+      color: Colors.grey.shade800.withOpacity(0.5),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade700.withOpacity(0.5),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: iconColor, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          isSeller ? 'Sold $title' : 'Bought $title',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: typeColor.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          status.toUpperCase(),
+                          style: TextStyle(
+                            color: typeColor,
+                            fontSize: 10,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  if (txTime != null)
+                    Text(
+                      '${txTime.year}-${txTime.month.toString().padLeft(2, '0')}-${txTime.day.toString().padLeft(2, '0')} ${txTime.hour.toString().padLeft(2, '0')}:${txTime.minute.toString().padLeft(2, '0')}',
+                      style: const TextStyle(color: Colors.grey, fontSize: 12),
+                    ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade900.withOpacity(0.5),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              tradeId.length > 20
+                                  ? '${tradeId.substring(0, 10)}...${tradeId.substring(tradeId.length - 8)}'
+                                  : tradeId,
+                              style: TextStyle(
+                                color: Colors.purple.shade400,
+                                fontSize: 10,
+                                fontFamily: 'monospace',
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          GestureDetector(
+                            onTap: () => _copyToClipboard(tradeId),
+                            child: const Icon(Icons.copy, size: 12, color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                      Text(
+                        amountStr,
+                        style: const TextStyle(color: Colors.white, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

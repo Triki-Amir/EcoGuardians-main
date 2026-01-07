@@ -631,6 +631,29 @@ async function getFactoryHistory(factoryId) {
 }
 
 /**
+ * Get all trades involving a factory (as buyer or seller)
+ */
+async function getFactoryTrades(factoryId) {
+  const db = getDatabase();
+  
+  try {
+    return await dbAll(db,
+      `SELECT t.*, 
+        s.name as sellerName, 
+        b.name as buyerName 
+       FROM trades t
+       LEFT JOIN factories s ON t.sellerId = s.factoryId
+       LEFT JOIN factories b ON t.buyerId = b.factoryId
+       WHERE t.sellerId = $1 OR t.buyerId = $1 
+       ORDER BY t.timestamp DESC`,
+      [factoryId]
+    );
+  } catch (error) {
+    throw error;
+  }
+}
+
+/**
  * Update available energy
  */
 async function updateAvailableEnergy(factoryId, newAvailableEnergy) {
@@ -770,6 +793,7 @@ module.exports = {
   getAllFactories,
   getTrade,
   getFactoryHistory,
+  getFactoryTrades,
   updateAvailableEnergy,
   updateDailyConsumption,
   getEnergyStatus,

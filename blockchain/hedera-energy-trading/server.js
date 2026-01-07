@@ -18,6 +18,7 @@ const {
   getAllFactories,
   getTrade,
   getFactoryHistory,
+  getFactoryTrades,
   updateAvailableEnergy,
   updateDailyConsumption,
   getEnergyStatus,
@@ -509,6 +510,23 @@ app.get('/api/factory/:factoryId/history', async (req, res) => {
     const history = await getFactoryHistory(factoryId);
 
     res.json({ success: true, data: history });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Get factory trades (as buyer or seller)
+ * GET /api/factory/:factoryId/trades
+ */
+app.get('/api/factory/:factoryId/trades', async (req, res) => {
+  try {
+    await ensureDatabase();
+
+    const { factoryId } = req.params;
+    const trades = await getFactoryTrades(factoryId);
+
+    res.json({ success: true, data: trades });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

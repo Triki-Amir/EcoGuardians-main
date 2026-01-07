@@ -31,6 +31,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String? _tecTokenId;
   String? _energyType;
   String? _createdAt;
+  double? _availableEnergy;
   bool _isLoading = true;
 
   // Notification preferences state
@@ -80,6 +81,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _tecBalance = (factoryData['currencyBalance'] as num?)?.toDouble();
           _tecTokenId = configData['tecTokenId'] as String?;
           _energyType = factoryData['energyType'] as String?;
+          // Fetch availableEnergy from database (lowercase column name)
+          _availableEnergy = (factoryData['availableEnergy'] as num?)?.toDouble();
           // Parse createdAt (timestamp in seconds or milliseconds)
           if (factoryData['createdAt'] != null) {
             final timestamp = factoryData['createdAt'];
@@ -478,127 +481,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ),
                               ),
                               const SizedBox(height: 4),
-                              Text(
-                                widget.availableEnergy != null
-                                    ? '${widget.availableEnergy!.toStringAsFixed(1)} kWh'
-                                    : 'N/A',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
+                              _isLoading
+                                  ? const SizedBox(
+                                      height: 18,
+                                      width: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : Text(
+                                      _availableEnergy != null
+                                          ? '${_availableEnergy!.toStringAsFixed(1)} kWh'
+                                          : 'N/A',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
                             ],
                           ),
                         ),
                       ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Validator Tier
-            Card(
-              color: Colors.grey.shade900.withOpacity(0.5),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Row(
-                          children: [
-                            Icon(Icons.verified, color: Colors.green, size: 20),
-                            SizedBox(width: 8),
-                            Text(
-                              'Validator Tier',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.amber.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: Colors.amber, width: 1),
-                          ),
-                          child: const Text(
-                            'Gold',
-                            style: TextStyle(
-                              color: Colors.amber,
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade800.withOpacity(0.5),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Total Rewards',
-                                style: TextStyle(
-                                  color: Colors.grey.shade400,
-                                  fontSize: 12,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              const Text(
-                                '1,247 ECT',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(width: 32),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(
-                                'Uncollected',
-                                style: TextStyle(
-                                  color: Colors.grey.shade400,
-                                  fontSize: 12,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              const Text(
-                                '5.00 ECT',
-                                style: TextStyle(
-                                  color: Colors.greenAccent,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
                     ),
                   ],
                 ),
