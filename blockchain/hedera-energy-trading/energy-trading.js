@@ -267,13 +267,14 @@ async function mintEnergyTokens(factoryId, amount) {
       }
     }
 
-    // Update energy balance and currency balance in local database
+    // Update energy balance, available energy, and currency balance in local database
     // Note: 1:1 ratio - minting 1 kWh of energy also credits 1 TEC token
     const newEnergyBalance = factory.energyBalance + amount;
+    const newAvailableEnergy = factory.availableEnergy + amount;
     const newCurrencyBalance = factory.currencyBalance + amount;
     
-    await dbRun(db, 'UPDATE factories SET energyBalance = $1, currencyBalance = $2, updatedAt = EXTRACT(EPOCH FROM NOW()) WHERE factoryId = $3', 
-      [newEnergyBalance, newCurrencyBalance, factoryId]);
+    await dbRun(db, 'UPDATE factories SET energyBalance = $1, availableEnergy = $2, currencyBalance = $3, updatedAt = EXTRACT(EPOCH FROM NOW()) WHERE factoryId = $4', 
+      [newEnergyBalance, newAvailableEnergy, newCurrencyBalance, factoryId]);
 
     // Record transaction history for mint
     await dbRun(db, `
@@ -329,10 +330,10 @@ async function transferEnergy(fromFactoryId, toFactoryId, amount) {
       throw new Error(`Insufficient energy balance: has ${fromFactory.energyBalance}, needs ${amount}`);
     }
 
-    // Update balances
-    await dbRun(db, 'UPDATE factories SET energyBalance = energyBalance - $1, updatedAt = EXTRACT(EPOCH FROM NOW()) WHERE factoryId = $2',
+    // Update balances (update both energyBalance and availableEnergy)
+    await dbRun(db, 'UPDATE factories SET energyBalance = energyBalance - $1, availableEnergy = availableEnergy - $1, updatedAt = EXTRACT(EPOCH FROM NOW()) WHERE factoryId = $2',
       [amount, fromFactoryId]);
-    await dbRun(db, 'UPDATE factories SET energyBalance = energyBalance + $1, updatedAt = EXTRACT(EPOCH FROM NOW()) WHERE factoryId = $2',
+    await dbRun(db, 'UPDATE factories SET energyBalance = energyBalance + $1, availableEnergy = availableEnergy + $1, updatedAt = EXTRACT(EPOCH FROM NOW()) WHERE factoryId = $2',
       [amount, toFactoryId]);
 
     // Record transaction history
@@ -471,10 +472,10 @@ async function executeTrade(tradeId) {
     }
 
     // Update local balances after successful Hedera transfer
-    // Transfer energy
-    await dbRun(db, 'UPDATE factories SET energyBalance = energyBalance - $1 WHERE factoryId = $2',
+    // Transfer energy (update both energyBalance and availableEnergy)
+    await dbRun(db, 'UPDATE factories SET energyBalance = energyBalance - $1, availableEnergy = availableEnergy - $1 WHERE factoryId = $2',
       [trade.amount, trade.sellerId]);
-    await dbRun(db, 'UPDATE factories SET energyBalance = energyBalance + $1 WHERE factoryId = $2',
+    await dbRun(db, 'UPDATE factories SET energyBalance = energyBalance + $1, availableEnergy = availableEnergy + $1 WHERE factoryId = $2',
       [trade.amount, trade.buyerId]);
 
     // Transfer TEC (currency) - update local tracking
