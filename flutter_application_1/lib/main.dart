@@ -1,17 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'providers/energy_data_provider.dart';
+import 'services/notification_service.dart';
 import 'screens/login_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/my_factory_screen.dart';
 import 'screens/smart_contracts_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/blockchain_screen.dart';
+import 'screens/notification_screen.dart';
 
 void main() {
   runApp(
-    ChangeNotifierProvider(
-      create: (context) => EnergyDataProvider(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (context) => EnergyDataProvider()),
+        ChangeNotifierProvider(create: (context) => NotificationService()),
+      ],
       child: const MyApp(),
     ),
   );
@@ -61,8 +66,12 @@ class _MainScreenState extends State<MainScreen> {
     });
     
     // Update the provider with current factory info
-    final provider = Provider.of<EnergyDataProvider>(context, listen: false);
-    provider.setCurrentFactory(factoryId, factoryName);
+    final energyProvider = Provider.of<EnergyDataProvider>(context, listen: false);
+    final notificationService = Provider.of<NotificationService>(context, listen: false);
+    
+    // Connect notification service to energy provider
+    energyProvider.setNotificationService(notificationService);
+    energyProvider.setCurrentFactory(factoryId, factoryName);
   }
 
   void _handleSignOut() {
@@ -142,6 +151,10 @@ class _MainScreenState extends State<MainScreen> {
           availableEnergy: provider.currentData.generation,
           dailyConsumption: provider.currentData.consumption,
         );
+      case 'notifications':
+        return NotificationScreen(
+          onBack: () => _handleNavigate('dashboard'),
+        );
       default:
         return DashboardScreen(
           onNavigate: _handleNavigate,
@@ -157,7 +170,8 @@ class _MainScreenState extends State<MainScreen> {
     }
 
     final showBottomNav = _activeScreen != 'blockchain' && 
-                          _activeScreen != 'profile';
+                          _activeScreen != 'profile' &&
+                          _activeScreen != 'notifications';
 
     return Scaffold(
       body: _getScreen(),
