@@ -720,16 +720,16 @@ class _BlockchainScreenState extends State<BlockchainScreen> with SingleTickerPr
   }
 
   Widget _buildFactoryTradeItem(Map<String, dynamic> trade) {
-    // Parse trade data
-    final tradeId = trade['tradeid'] as String? ?? '';
-    final sellerId = trade['sellerid'] as String? ?? '';
-    final buyerId = trade['buyerid'] as String? ?? '';
-    final sellerName = trade['sellername'] as String? ?? sellerId;
-    final buyerName = trade['buyername'] as String? ?? buyerId;
-    final amount = (trade['amount'] as num?)?.toDouble() ?? 0.0;
-    final pricePerUnit = (trade['priceperunit'] as num?)?.toDouble() ?? 0.0;
-    final totalPrice = (trade['totalprice'] as num?)?.toDouble() ?? 0.0;
-    final status = trade['status'] as String? ?? 'pending';
+    // Parse trade data - handle both camelCase and lowercase from PostgreSQL
+    final tradeId = (trade['tradeid'] ?? trade['tradeId']) as String? ?? '';
+    final sellerId = (trade['sellerid'] ?? trade['sellerId']) as String? ?? '';
+    final buyerId = (trade['buyerid'] ?? trade['buyerId']) as String? ?? '';
+    final sellerName = (trade['sellername'] ?? trade['sellerName']) as String? ?? sellerId;
+    final buyerName = (trade['buyername'] ?? trade['buyerName']) as String? ?? buyerId;
+    final amount = ((trade['amount'] as num?)?.toDouble()) ?? 0.0;
+    final pricePerUnit = ((trade['priceperunit'] ?? trade['pricePerUnit']) as num?)?.toDouble() ?? 0.0;
+    final totalPrice = ((trade['totalprice'] ?? trade['totalPrice']) as num?)?.toDouble() ?? 0.0;
+    final status = (trade['status'] as String?) ?? 'pending';
     final timestamp = trade['timestamp'];
     
     // Parse timestamp
