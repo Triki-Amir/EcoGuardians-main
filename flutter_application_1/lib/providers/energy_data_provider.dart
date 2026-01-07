@@ -6,11 +6,24 @@ import '../models/factory.dart';
 import '../models/energy_offer.dart';
 import '../models/trade.dart';
 import '../services/api_service.dart';
+import '../services/notification_service.dart';
 
 class EnergyDataProvider extends ChangeNotifier {
   // Current factory information
   String _currentFactoryId = '';
   String _currentFactoryName = '';
+  
+  // Notification service reference
+  NotificationService? _notificationService;
+  
+  // Daily consumption and available energy for alerts
+  double? _dailyConsumption;
+  double? _availableEnergy;
+  
+  // Energy alert state tracking to prevent spam
+  DateTime? _lastLowEnergyAlert;
+  DateTime? _lastSurplusAlert;
+  static const Duration _alertCooldown = Duration(hours: 1);
   
   CurrentEnergyData _currentData = CurrentEnergyData(
     generation: 245,
@@ -44,6 +57,11 @@ class EnergyDataProvider extends ChangeNotifier {
   List<EnergyOffer> get offers => _offers;
   List<Trade> get trades => _trades;
 
+  /// Set notification service reference
+  void setNotificationService(NotificationService service) {
+    _notificationService = service;
+  }
+
   /// Set the current factory after login/registration
   void setCurrentFactory(String factoryId, String factoryName) {
     _currentFactoryId = factoryId;
@@ -57,6 +75,17 @@ class EnergyDataProvider extends ChangeNotifier {
   /// Fetch factory data from API
   Future<void> _fetchFactoryData() async {
     try {
+      // Try to fetch current factory data to get dailyConsumption and availableEnergy
+      final factoryResult = await ApiService.getFactory(_currentFactoryId);
+      if (factoryResult['success'] == true && factoryResult['data'] != null) {
+        final factoryData = factoryResult['data'] as Map<String, dynamic>;
+        _dailyConsumption = (factoryData['dailyConsumption'] as num?)?.toDouble();
+        _availableEnergy = (factoryData['availableEnergy'] as num?)?.toDouble();
+        
+        // Check energy status and trigger alerts if needed
+        _checkEnergyStatus();
+      }
+      
       // Try to fetch all factories
       final result = await ApiService.getAllFactories();
       if (result['success'] == true && result['data'] != null) {
@@ -70,6 +99,41 @@ class EnergyDataProvider extends ChangeNotifier {
     } catch (e) {
       // API might not be available, use mock data
       debugPrint('API not available, using mock data: $e');
+    }
+  }
+
+  /// Check energy status and send alerts
+  void _checkEnergyStatus() {
+    if (_notificationService == null || 
+        _dailyConsumption == null || 
+        _availableEnergy == null) {
+      return;
+    }
+
+    final now = DateTime.now();
+
+    if (_availableEnergy! < _dailyConsumption!) {
+      // Low energy alert with cooldown
+      if (_lastLowEnergyAlert == null || 
+          now.difference(_lastLowEnergyAlert!) > _alertCooldown) {
+        _notificationService!.notifyEnergyLow(
+          currentEnergy: _availableEnergy!,
+          dailyConsumption: _dailyConsumption!,
+        );
+        _lastLowEnergyAlert = now;
+      }
+    } else if (_availableEnergy! > _dailyConsumption! * 1.5) {
+      // Surplus alert (50% more than daily consumption) with cooldown
+      if (_lastSurplusAlert == null || 
+          now.difference(_lastSurplusAlert!) > _alertCooldown) {
+        final surplus = _availableEnergy! - _dailyConsumption!;
+        _notificationService!.notifyEnergySurplus(
+          currentEnergy: _availableEnergy!,
+          dailyConsumption: _dailyConsumption!,
+          surplus: surplus,
+        );
+        _lastSurplusAlert = now;
+      }
     }
   }
 
@@ -120,6 +184,24 @@ class EnergyDataProvider extends ChangeNotifier {
         sellerId: sellerId,
         buyerId: buyerId,
       ));
+      
+      // Send notification
+      if (_notificationService != null) {
+        final isSeller = sellerId == _currentFactoryId;
+        final otherFactoryName = isSeller 
+            ? _getFactoryNameById(buyerId) 
+            : factoryName;
+        final tradeType = isSeller ? 'sell' : 'buy';
+        
+        _notificationService!.notifyTradeCreated(
+          tradeId: tradeId,
+          factoryName: otherFactoryName,
+          amount: amount,
+          pricePerUnit: pricePerUnit,
+          tradeType: tradeType,
+        );
+      }
+      
       notifyListeners();
     }
 
@@ -145,6 +227,19 @@ class EnergyDataProvider extends ChangeNotifier {
           status: TradeStatus.completed,
           timestamp: DateTime.now(),
         ));
+        
+        // Send notification
+        if (_notificationService != null) {
+          final tradeType = offer.type == OfferType.sell ? 'sell' : 'buy';
+          _notificationService!.notifyTradeExecuted(
+            tradeId: tradeId,
+            factoryName: offer.factoryName,
+            amount: offer.kWh,
+            totalPrice: offer.totalPrice,
+            tradeType: tradeType,
+          );
+        }
+        
         _offers.removeAt(offerIndex);
       }
       notifyListeners();

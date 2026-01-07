@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'dart:math' as math;
 import '../providers/energy_data_provider.dart';
+import '../services/notification_service.dart';
 import '../models/factory.dart';
 import '../services/api_service.dart';
 
@@ -70,30 +71,46 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ],
                 ),
                 actions: [
-                  IconButton(
-                    icon: Stack(
-                      children: [
-                        const Icon(Icons.notifications),
-                        Positioned(
-                          right: 0,
-                          top: 0,
-                          child: Container(
-                            padding: const EdgeInsets.all(2),
-                            decoration: const BoxDecoration(
-                              color: Colors.red,
-                              shape: BoxShape.circle,
-                            ),
-                            constraints: const BoxConstraints(
-                              minWidth: 8,
-                              minHeight: 8,
-                            ),
-                          ),
+                  Consumer<NotificationService>(
+                    builder: (context, notificationService, _) {
+                      return IconButton(
+                        icon: Stack(
+                          children: [
+                            const Icon(Icons.notifications),
+                            if (notificationService.unreadCount > 0)
+                              Positioned(
+                                right: 0,
+                                top: 0,
+                                child: Container(
+                                  padding: const EdgeInsets.all(2),
+                                  decoration: const BoxDecoration(
+                                    color: Colors.red,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  constraints: const BoxConstraints(
+                                    minWidth: 16,
+                                    minHeight: 16,
+                                  ),
+                                  child: Text(
+                                    notificationService.unreadCount > 9
+                                        ? '9+'
+                                        : '${notificationService.unreadCount}',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
-                      ],
-                    ),
-                    color: Colors.grey,
-                    onPressed: () {
-                      _showNotificationPanel(context);
+                        color: Colors.grey,
+                        onPressed: () {
+                          widget.onNavigate('notifications');
+                        },
+                      );
                     },
                   ),
                   IconButton(
@@ -676,118 +693,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             },
           ),
         ),
-      ),
-    );
-  }
-
-  void _showNotificationPanel(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.grey.shade900,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Notifications',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close, color: Colors.grey),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ],
-            ),
-            const Divider(color: Colors.grey),
-            _buildNotificationItem(
-              Icons.bolt,
-              Colors.green,
-              'Low Energy Alert',
-              'Your surplus has dropped below 50 kWh',
-              '5 min ago',
-            ),
-            _buildNotificationItem(
-              Icons.local_offer,
-              Colors.blue,
-              'New Trade Offer',
-              'Factory 3 wants to buy 100 kWh at 0.12 TEC/kWh',
-              '15 min ago',
-            ),
-            _buildNotificationItem(
-              Icons.check_circle,
-              Colors.purple,
-              'Contract Executed',
-              'Successfully sold 150 kWh to Factory 2',
-              '1 hour ago',
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNotificationItem(
-    IconData icon,
-    Color color,
-    String title,
-    String message,
-    String time,
-  ) {
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.grey.shade800.withOpacity(0.5),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.2),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: color, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  message,
-                  style: const TextStyle(color: Colors.grey, fontSize: 12),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  time,
-                  style: TextStyle(color: Colors.grey.shade600, fontSize: 10),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }

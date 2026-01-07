@@ -19,6 +19,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _factoryNameController = TextEditingController();
   final _initialBalanceController = TextEditingController(text: '1000');
   final _currencyBalanceController = TextEditingController(text: '500');
+  final _dailyConsumptionController = TextEditingController(text: '100');
   String _selectedEnergyType = 'Solar';
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
@@ -31,6 +32,7 @@ class _LoginScreenState extends State<LoginScreen> {
     _factoryNameController.dispose();
     _initialBalanceController.dispose();
     _currencyBalanceController.dispose();
+    _dailyConsumptionController.dispose();
     super.dispose();
   }
 
@@ -77,6 +79,7 @@ class _LoginScreenState extends State<LoginScreen> {
       final factoryName = _factoryNameController.text.trim();
       final initialBalance = double.tryParse(_initialBalanceController.text) ?? 0;
       final currencyBalance = double.tryParse(_currencyBalanceController.text) ?? 0;
+      final dailyConsumption = double.tryParse(_dailyConsumptionController.text) ?? 0;
 
       if (factoryId.isEmpty || factoryName.isEmpty || password.isEmpty) {
         _showError('Please fill in all required fields');
@@ -103,6 +106,7 @@ class _LoginScreenState extends State<LoginScreen> {
           initialBalance: initialBalance,
           energyType: _selectedEnergyType,
           currencyBalance: currencyBalance,
+          dailyConsumption: dailyConsumption,
         );
 
         if (!mounted) return;
@@ -315,6 +319,24 @@ class _LoginScreenState extends State<LoginScreen> {
                             labelText: 'Initial TEC Balance',
                             labelStyle: const TextStyle(color: Colors.grey),
                             hintText: 'Starting currency balance',
+                            hintStyle: TextStyle(color: Colors.grey.shade600),
+                            filled: true,
+                            fillColor: Colors.grey.shade800,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: _dailyConsumptionController,
+                          style: const TextStyle(color: Colors.white),
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            labelText: 'Daily Consumption (kWh)',
+                            labelStyle: const TextStyle(color: Colors.grey),
+                            hintText: 'Expected daily energy usage',
                             hintStyle: TextStyle(color: Colors.grey.shade600),
                             filled: true,
                             fillColor: Colors.grey.shade800,

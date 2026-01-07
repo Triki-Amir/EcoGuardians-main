@@ -33,6 +33,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String? _energyType;
   String? _createdAt;
   double? _availableEnergy;
+  double? _dailyConsumption;
   bool _isLoading = true;
 
   // Notification preferences state
@@ -84,6 +85,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _energyType = factoryData['energyType'] as String?;
           // Fetch availableEnergy from database (lowercase column name)
           _availableEnergy = (factoryData['availableEnergy'] as num?)?.toDouble();
+          _dailyConsumption = (factoryData['dailyConsumption'] as num?)?.toDouble();
           // Parse createdAt (timestamp in seconds or milliseconds)
           if (factoryData['createdAt'] != null) {
             final timestamp = factoryData['createdAt'];
@@ -502,6 +504,57 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       ),
                                     ),
                             ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    const Divider(color: Colors.white10),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Daily Consumption',
+                              style: TextStyle(
+                                color: Colors.grey,
+                                fontSize: 12,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            _isLoading
+                                ? const SizedBox(
+                                    height: 18,
+                                    width: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : Text(
+                                    _dailyConsumption != null
+                                        ? '${_dailyConsumption!.toStringAsFixed(1)} kWh'
+                                        : 'Not set',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                          ],
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: _showUpdateDailyConsumptionDialog,
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Colors.blue),
+                          ),
+                          icon: const Icon(Icons.edit, color: Colors.blue, size: 16),
+                          label: const Text(
+                            'Update',
+                            style: TextStyle(color: Colors.blue),
                           ),
                         ),
                       ],
@@ -1087,6 +1140,119 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     )
                   : const Text('Change Password'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showUpdateDailyConsumptionDialog() {
+    final dailyConsumptionController = TextEditingController(
+      text: _dailyConsumption?.toStringAsFixed(1) ?? '',
+    );
+    bool isLoading = false;
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: Colors.grey.shade900,
+          title: const Text(
+            'Update Daily Consumption',
+            style: TextStyle(color: Colors.white),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Set your daily energy consumption to receive alerts when your available energy is below this threshold.',
+                style: TextStyle(color: Colors.grey, fontSize: 14),
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: dailyConsumptionController,
+                keyboardType: TextInputType.number,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  labelText: 'Daily Consumption (kWh)',
+                  labelStyle: const TextStyle(color: Colors.grey),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Colors.grey.shade700),
+                  ),
+                  focusedBorder: const OutlineInputBorder(
+                    borderSide: BorderSide(color: Colors.blue),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: isLoading ? null : () => Navigator.pop(context),
+              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              onPressed: isLoading
+                  ? null
+                  : () async {
+                      final consumption = double.tryParse(
+                        dailyConsumptionController.text.trim(),
+                      );
+
+                      if (consumption == null || consumption <= 0) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Please enter a valid positive number greater than 0'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                        return;
+                      }
+
+                      setDialogState(() => isLoading = true);
+
+                      try {
+                        await ApiService.updateDailyConsumption(
+                          factoryId: widget.factoryId,
+                          dailyConsumption: consumption,
+                        );
+
+                        if (context.mounted) {
+                          Navigator.pop(context);
+                          setState(() {
+                            _dailyConsumption = consumption;
+                          });
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Daily consumption updated successfully!'),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        setDialogState(() => isLoading = false);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Error: ${e.toString()}'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      }
+                    },
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+              child: isLoading
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text('Update'),
             ),
           ],
         ),
